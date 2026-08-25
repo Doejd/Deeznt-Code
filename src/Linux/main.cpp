@@ -46,19 +46,12 @@ godot::Dictionary AnsiHighlighter::_get_line_syntax_highlighting(const int line)
     return res;
 }
 
-void LinuxHost::bulk_remove(const int32_t &to_line) {
-    if (to_line <= 0) return;
-    int32_t new_size = static_cast<int32_t>(segments_to_line.size()) - to_line;
-    if (new_size < 0) new_size = 0;
-    segments_to_line.resize(new_size);
-}
-
-bool LinuxHost::file_exists(const char *path) {
+bool LinuxHost::fileExists(const char *path) {
     struct stat st{};
     return path && stat(path, &st) == 0 && S_ISREG(st.st_mode);
 }
 
-void LinuxHost::load_history(const uint32_t &max_lines) {
+void LinuxHost::loadHistory(const uint32_t &max_lines) {
     const char* hist_path = getenv("HISTFILE");
     godot::String path;
     if (!hist_path) {
@@ -67,7 +60,7 @@ void LinuxHost::load_history(const uint32_t &max_lines) {
         path = godot::String(home_path) + "/.bash_history";
     }
     else path = hist_path;
-    if (!file_exists(path.utf8().get_data())) {history=godot::PackedStringArray(); return;}
+    if (!fileExists(path.utf8().get_data())) {history=godot::PackedStringArray(); return;}
 
     const godot::Ref<godot::FileAccess> file = godot::FileAccess::open(godot::String(path), godot::FileAccess::READ);
     if (file.is_null()) {history=godot::PackedStringArray(); return;}
@@ -101,28 +94,8 @@ void LinuxHost::load_history(const uint32_t &max_lines) {
     history_temp = "";
 }
 
-void LinuxHost::write_to_terminal(const godot::String &text) {
-    const std::string native = text.utf8().get_data();
-
-    if (native == "clear\n") {
-        clear();
-        segments_to_line.clear();
-    }
-
-    if (native == "exit\n") {
-        end_pseudoterminal();
-        clear();
-        segments_to_line.clear();
-    }
-
-    if (master_fd != -1) {
-        const ssize_t result = write(master_fd, native.c_str(), native.size());
-        if (result == -1) perror("write");
-    }
-}
-
-bool LinuxHost::clamp_caret() {
-    if (const int64_t rel = get_relative_caret_idx(); rel <= 0) {
+bool LinuxHost::clampCaret() {
+    if (const int64_t rel = getRelativeCaretIndex(); rel <= 0) {
         set_caret_line(input_start_line_col.x);
         set_caret_column(input_start_line_col.y);
         return true;
@@ -130,7 +103,7 @@ bool LinuxHost::clamp_caret() {
     return false;
 }
 
-int64_t LinuxHost::get_relative_caret_idx() const {
+int64_t LinuxHost::getRelativeCaretIndex() const {
     const int start_line = input_start_line_col.x;
     const int start_col = input_start_line_col.y;
 
@@ -148,7 +121,13 @@ int64_t LinuxHost::get_relative_caret_idx() const {
     return idx;
 }
 
-int LinuxHost::ansi_to_color(const int &code) {
+void LinuxHost::bulkRemove(const int32_t &to_line) {
+    if (to_line <= 0) return;
+    const int32_t count = std::min(to_line, static_cast<int32_t>(segments_to_line.size()));
+    segments_to_line.erase(segments_to_line.begin(), segments_to_line.begin() + count);
+}
+
+int LinuxHost::ansiToColor(const int &code) {
     switch (code) {
         case 0: return 0x000000;     // black
         case 1: return 0xff0000;     // red
@@ -169,7 +148,7 @@ int LinuxHost::ansi_to_color(const int &code) {
     }
 }
 
-int LinuxHost::ansi256_to_color(const int &code){
+int LinuxHost::ansi256ToColor(const int &code){
     if (code >= 16 && code <= 231){
         const int idx = code - 16;
 
@@ -186,7 +165,7 @@ int LinuxHost::ansi256_to_color(const int &code){
     return gray << 16 | gray << 8 | gray;
 }
 
-void LinuxHost::apply_style(const int code, Segment &seg){
+void LinuxHost::applyStyle(const int code, Segment &seg){
     switch(code){
         case 0:
             seg.color = 0xffffff;
@@ -197,15 +176,15 @@ void LinuxHost::apply_style(const int code, Segment &seg){
         case 1: seg.bold = true; break;
         case 22: seg.bold = false; break;
 
-        case 30 ... 37: seg.color = ansi_to_color(code - 30); break;
-        case 40 ... 47: seg.bg_color = ansi_to_color(code - 40); break;
-        case 90 ... 97: seg.color = ansi_to_color(code - 90 + 8); break;
-        case 100 ... 107: seg.bg_color = ansi_to_color(code - 100 + 8); break;
+        case 30 ... 37: seg.color = ansiToColor(code - 30); break;
+        case 40 ... 47: seg.bg_color = ansiToColor(code - 40); break;
+        case 90 ... 97: seg.color = ansiToColor(code - 90 + 8); break;
+        case 100 ... 107: seg.bg_color = ansiToColor(code - 100 + 8); break;
         default: ;
     }
 }
 
-void LinuxHost::apply_args(Segment &seg, const godot::String &args) {
+void LinuxHost::applyArgs(Segment &seg, const godot::String &args) {
     auto params = args.split(";");
     for (ssize_t i = 0; i < params.size();){
         const int code = static_cast<int>(params[i].to_int());
@@ -215,7 +194,7 @@ void LinuxHost::apply_args(Segment &seg, const godot::String &args) {
             const int mode = static_cast<int>(params[i+1].to_int());
             if (mode == 5){
                 const int idx = static_cast<int>(params[i+2].to_int());
-                const int rgb = ansi256_to_color(idx);
+                const int rgb = ansi256ToColor(idx);
 
                 if (is_fg) seg.color = rgb;
                 else seg.bg_color = rgb;
@@ -237,12 +216,12 @@ void LinuxHost::apply_args(Segment &seg, const godot::String &args) {
             i++;
             continue;
         }
-        apply_style(code, seg);
+        applyStyle(code, seg);
         i++;
     }
 }
 
-void LinuxHost::get_color_highlighting(const godot::String &ansi_string, godot::String &frame_text) {
+void LinuxHost::getHighlighting(const godot::String &ansi_string, godot::String &frame_text) {
     Segment current;
     godot::String cur_args;
     ParseState parse_state = ParseState::Normal;
@@ -280,7 +259,7 @@ void LinuxHost::get_color_highlighting(const godot::String &ansi_string, godot::
             else parse_state = ParseState::Normal;
         }
         else {
-            if (ch == 'm') {apply_args(current, cur_args); parse_state = ParseState::Normal;}
+            if (ch == 'm') {applyArgs(current, cur_args); parse_state = ParseState::Normal;}
             else if (ch != '\n') cur_args += ch;
         }
     }
@@ -292,31 +271,10 @@ void LinuxHost::get_color_highlighting(const godot::String &ansi_string, godot::
     }
 }
 
-void LinuxHost::_ready() {
-    if (godot::Engine::get_singleton()->is_editor_hint()) {
-        set_process(false);
-        return;
-    }
-
-    clear();
-    set_focus_mode(FOCUS_ALL);
-    set_selecting_enabled(false);
-    set_emoji_menu_enabled(false);
-    set_context_menu_enabled(false);
-    set_drag_and_drop_selection_enabled(false);
-    set_middle_mouse_paste_enabled(false);
-    set_empty_selection_clipboard_enabled(false);
-    set_process(true);
-
-    highlighter.instantiate();
-    this->set_syntax_highlighter(highlighter);
-    font = get_theme_font("font", "TextEdit");
-
-    start_pseudoterminal();
-}
-
-void LinuxHost::_exit_tree() {
-    end_pseudoterminal();
+void LinuxHost::_bind_methods(){
+    godot::ClassDB::bind_method(godot::D_METHOD("endTerminal"), &LinuxHost::endTerminal);
+    godot::ClassDB::bind_method(godot::D_METHOD("startTerminal"), &LinuxHost::startTerminal);
+    godot::ClassDB::bind_method(godot::D_METHOD("writeToTerminal"), &LinuxHost::writeToTerminal);
 }
 
 void LinuxHost::_notification(int p_what) {
@@ -324,20 +282,14 @@ void LinuxHost::_notification(int p_what) {
         case NOTIFICATION_WM_CLOSE_REQUEST:
         case NOTIFICATION_PREDELETE:
         case NOTIFICATION_EXIT_TREE:
-            end_pseudoterminal();
+            endTerminal();
             break;
 
         default: break;
     }
 }
 
-void LinuxHost::_bind_methods(){
-    godot::ClassDB::bind_method(godot::D_METHOD("end_pseudoterminal"), &LinuxHost::end_pseudoterminal);
-    godot::ClassDB::bind_method(godot::D_METHOD("start_pseudoterminal"), &LinuxHost::start_pseudoterminal);
-    godot::ClassDB::bind_method(godot::D_METHOD("write_to_terminal"), &LinuxHost::write_to_terminal);
-}
-
-void LinuxHost::start_pseudoterminal(){
+void LinuxHost::startTerminal(){
     if (running) return;
     if (openpty(&master_fd, &slave_fd, nullptr, nullptr, nullptr) == -1) {godot::UtilityFunctions::print("Openpty Failed"); return;}
     const int flags = fcntl(master_fd, F_GETFL, 0);
@@ -363,10 +315,10 @@ void LinuxHost::start_pseudoterminal(){
 
     godot::UtilityFunctions::print("PTY searched, PID: ", child_pid);
 
-    load_history(500);
+    loadHistory(500);
 }
 
-void LinuxHost::end_pseudoterminal(){
+void LinuxHost::endTerminal(){
     if (!running) return;
 
     running = false;
@@ -386,24 +338,160 @@ void LinuxHost::end_pseudoterminal(){
     }
 }
 
+void LinuxHost::writeToTerminal(const godot::String &text) {
+    const std::string native = text.utf8().get_data();
+
+    if (native == "clear\n") {
+        clear();
+        segments_to_line.clear();
+    }
+
+    if (native == "exit\n") {
+        endTerminal();
+        clear();
+        segments_to_line.clear();
+    }
+
+    if (master_fd != -1) {
+        const ssize_t result = write(master_fd, native.c_str(), native.size());
+        if (result == -1) perror("write");
+    }
+}
+
+void LinuxHost::readFromTerminal() {
+    if (!running || master_fd == -1) return;
+
+    pollfd pfd{};
+    pfd.fd = master_fd;
+    pfd.events = POLLIN;
+
+    if (const int ret = poll(&pfd, 1, 0); ret <= 0) return;
+
+    if (pfd.revents & (POLLIN | POLLHUP)) {
+        char buffer[4097];
+        size_t bytesRead{0};
+
+        constexpr size_t MAX_BYTES = 32768; // 32 KB in order not to spike frame rate
+
+        while (bytesRead < MAX_BYTES) {
+            if (const ssize_t n = read(master_fd, buffer, sizeof(buffer) - 1); n > 0) {
+                leftoverRead += godot::String::utf8(buffer, static_cast<int>(n));
+                bytesRead += static_cast<size_t>(n);
+            }
+            else if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) break;
+            else if (n == 0 || (n < 0 && errno == EIO)) {running = false; break;}
+        }
+    }
+}
+
+void LinuxHost::_ready() {
+    if (godot::Engine::get_singleton()->is_editor_hint()) {
+        set_process(false);
+        return;
+    }
+
+    clear();
+    set_focus_mode(FOCUS_ALL);
+    set_selecting_enabled(false);
+    set_emoji_menu_enabled(false);
+    set_context_menu_enabled(false);
+    set_drag_and_drop_selection_enabled(false);
+    set_middle_mouse_paste_enabled(false);
+    set_empty_selection_clipboard_enabled(false);
+    set_process(true);
+
+    highlighter.instantiate();
+    this->set_syntax_highlighter(highlighter);
+    font = get_theme_font("font", "TextEdit");
+
+    startTerminal();
+}
+
+void LinuxHost::_exit_tree() {
+    endTerminal();
+}
+
+void LinuxHost::_gui_input(const godot::Ref<godot::InputEvent> &event) {
+    const godot::Ref<godot::InputEventKey> key_event = event;
+    if (event->is_class("InputEventMouseButton")) clampCaret();
+    if (!key_event.is_valid() || !key_event->is_pressed()) return;
+    if (!has_focus()) return;
+    const int keycode = key_event->get_keycode();
+    if (keycode == godot::KEY_LEFT || keycode == godot::KEY_PAGEUP || keycode == godot::KEY_HOME) {
+        if (clampCaret()) accept_event();
+        return;
+    }
+    if (keycode == godot::KEY_C && key_event->is_ctrl_pressed()) {
+        if (master_fd == -1) return;
+        const pid_t fg_pgid = tcgetpgrp(master_fd);
+        if (fg_pgid > 0) kill(-fg_pgid, SIGINT);
+
+        input = "";
+        accept_event();
+        return;
+    }
+    if (keycode == godot::KEY_ENTER) {
+        if (!input.strip_edges().is_empty()) history.push_back(input); history_index = static_cast<int32_t>(history.size());
+        remove_text(input_start_line_col.x, input_start_line_col.y, get_line_count() - 1, static_cast<int32_t>(get_line(get_line_count() - 1).length()));
+        writeToTerminal(input + "\n");
+        input = "";
+        accept_event();
+        return;
+    }
+    if (keycode == godot::KEY_BACKSPACE) {
+        if (const int64_t rel = getRelativeCaretIndex(); rel > 0 && rel <= input.length()) {
+            input = input.substr(0, rel - 1) + input.substr(rel);
+            backspace();
+        }
+        accept_event();
+        return;
+    }
+    if (keycode == godot::KEY_UP) {
+        if (history.is_empty()) {accept_event(); return;}
+        if (history_index == history.size()) history_temp = input;
+        history_index = std::max(0, history_index - 1);
+        input = history[history_index];
+        remove_text(input_start_line_col.x, input_start_line_col.y, get_line_count() - 1, static_cast<int32_t>(get_line(get_line_count() - 1).length()));
+        insert_text(input,input_start_line_col.x, input_start_line_col.y);
+        accept_event();
+        return;
+    }
+    if (keycode == godot::KEY_DOWN) {
+        history_index = std::min(static_cast<int32_t>(history.size()) , history_index + 1);
+        if (history_index == history.size()) input = history_temp;
+        else if (history_index < history.size()) input = history[history_index];
+        remove_text(input_start_line_col.x, input_start_line_col.y, get_line_count() - 1, static_cast<int32_t>(get_line(get_line_count() - 1).length()));
+        insert_text(input,input_start_line_col.x, input_start_line_col.y);
+        accept_event();
+        return;
+    }
+    if (!key_event->is_ctrl_pressed() && !key_event->is_alt_pressed()) {
+        const char32_t unicode = key_event->get_unicode();
+        if (unicode == 0) return;
+        if (const int64_t rel = getRelativeCaretIndex(); rel >= 0 && rel <= input.length()) {
+            input = input.substr(0, rel) + godot::String::chr(unicode) + input.substr(rel);
+        }
+        else accept_event();
+    }
+}
+
 void LinuxHost::_process(double p_delta) {
     if (godot::Engine::get_singleton()->is_editor_hint()) return;
 
-    read_from_terminal();
+    readFromTerminal();
 
-    int32_t processed{0};
     godot::String frame_text{""};
 
-    while (!output_queue.empty() && processed < MAX_LINES_PER_FRAME) {
-        get_color_highlighting(output_queue.front(), frame_text);
-        output_queue.pop();
-        processed++;
-    }
+    getHighlighting(leftoverRead, frame_text);
+
+    leftoverRead = "";
+
     if (frame_text.is_empty()) return;
 
     if (const int excess = get_line_count() - TOTAL_MAX_LINES; excess > 0) {
         remove_text(0, 0, excess, static_cast<int32_t>(get_line(excess).length()));
-        bulk_remove(excess);
+        bulkRemove(excess);
+        highlighter->clear_highlighting_cache();
         center_viewport_to_caret();
     }
 
@@ -443,89 +531,5 @@ void  LinuxHost::_draw() {
 }
 
 std::deque<godot::Vector<Segment>> LinuxHost::get_segments_to_line() const {return segments_to_line;}
-
-void LinuxHost::_gui_input(const godot::Ref<godot::InputEvent> &event) {
-    const godot::Ref<godot::InputEventKey> key_event = event;
-    if (event->is_class("InputEventMouseButton")) clamp_caret();
-    if (!key_event.is_valid() || !key_event->is_pressed()) return;
-    if (!has_focus()) return;
-    const int keycode = key_event->get_keycode();
-    if (keycode == godot::KEY_LEFT || keycode == godot::KEY_PAGEUP || keycode == godot::KEY_HOME) {
-        if (clamp_caret()) accept_event();
-        return;
-    }
-    if (keycode == godot::KEY_C && key_event->is_ctrl_pressed()) {
-        if (master_fd == -1) return;
-        const pid_t fg_pgid = tcgetpgrp(master_fd);
-        if (fg_pgid > 0) kill(-fg_pgid, SIGINT);
-
-        input = "";
-        accept_event();
-        return;
-    }
-    if (keycode == godot::KEY_ENTER) {
-        if (!input.strip_edges().is_empty()) history.push_back(input); history_index = static_cast<int32_t>(history.size());
-        remove_text(input_start_line_col.x, input_start_line_col.y, get_line_count() - 1, static_cast<int32_t>(get_line(get_line_count() - 1).length()));
-        write_to_terminal(input + "\n");
-        input = "";
-        accept_event();
-        return;
-    }
-    if (keycode == godot::KEY_BACKSPACE) {
-        if (const int64_t rel = get_relative_caret_idx(); rel > 0 && rel <= input.length()) {
-            input = input.substr(0, rel - 1) + input.substr(rel);
-            backspace();
-        }
-        accept_event();
-        return;
-    }
-    if (keycode == godot::KEY_UP) {
-        if (history.is_empty()) {accept_event(); return;}
-        if (history_index == history.size()) history_temp = input;
-        history_index = std::max(0, history_index - 1);
-        input = history[history_index];
-        remove_text(input_start_line_col.x, input_start_line_col.y, get_line_count() - 1, static_cast<int32_t>(get_line(get_line_count() - 1).length()));
-        insert_text(input,input_start_line_col.x, input_start_line_col.y);
-        accept_event();
-        return;
-    }
-    if (keycode == godot::KEY_DOWN) {
-        history_index = std::min(static_cast<int32_t>(history.size()) , history_index + 1);
-        if (history_index == history.size()) input = history_temp;
-        else if (history_index < history.size()) input = history[history_index];
-        remove_text(input_start_line_col.x, input_start_line_col.y, get_line_count() - 1, static_cast<int32_t>(get_line(get_line_count() - 1).length()));
-        insert_text(input,input_start_line_col.x, input_start_line_col.y);
-        accept_event();
-        return;
-    }
-    if (!key_event->is_ctrl_pressed() && !key_event->is_alt_pressed()) {
-        const char32_t unicode = key_event->get_unicode();
-        if (unicode == 0) return;
-        if (const int64_t rel = get_relative_caret_idx(); rel >= 0 && rel <= input.length()) {
-            input = input.substr(0, rel) + godot::String::chr(unicode) + input.substr(rel);
-        }
-        else accept_event();
-    }
-}
-
-void LinuxHost::read_from_terminal() {
-    if (!running || master_fd == -1) return;
-
-    pollfd pfd{};
-    pfd.fd = master_fd;
-    pfd.events = POLLIN;
-
-    if (const int ret = poll(&pfd, 1, 0); ret <= 0) return;
-
-    if (pfd.revents & POLLIN) {
-        char buffer[4097];
-
-        if (const ssize_t n = read(master_fd, buffer, sizeof(buffer) - 1); n > 0) {
-            buffer[n] = '\0';
-            if (constexpr size_t MAX_QUEUE_SIZE{5000}; output_queue.size() < MAX_QUEUE_SIZE) output_queue.emplace(buffer);
-        }
-        else if (n == 0) running = false;
-    }
-}
 
 #endif

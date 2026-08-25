@@ -42,46 +42,58 @@ class LinuxHost : public godot::TextEdit {
     int slave_fd{-1};
     pid_t child_pid{-1};
     bool running{false};
-    std::queue<godot::String> output_queue;
+
+    godot::String leftoverRead;
+
     godot::String input;
+    godot::Ref<godot::Font> font;
+
     godot::String history_temp;
     int32_t history_index{0};
+    godot::PackedStringArray history;
+
     godot::Vector2i input_start_line_col{0, 0};
+
     int MAX_LINES_PER_FRAME{50};
     int TOTAL_MAX_LINES{22560};
+
     godot::Ref<AnsiHighlighter> highlighter;
-    godot::Ref<godot::Font> font;
-    godot::PackedStringArray history;
+
     std::deque<godot::Vector<Segment>> segments_to_line;
 
-    void load_history(const uint32_t &max_lines);
-    [[nodiscard]] int64_t get_relative_caret_idx() const;
-    static bool file_exists(const char *path);
-    bool clamp_caret();
-    void bulk_remove(const int32_t &to_line);
+    static bool fileExists(const char *path);
+    void loadHistory(const uint32_t &max_lines);
 
-    static int ansi_to_color(const int &code);
-    static int ansi256_to_color(const int &code);
+    bool clampCaret();
+    [[nodiscard]] int64_t getRelativeCaretIndex() const;
 
-    static void apply_style(int code, Segment &seg);
+    void bulkRemove(const int32_t &to_line);
 
-    static void apply_args(Segment &seg, const godot::String &args);
-    void get_color_highlighting(const godot::String &ansi_string, godot::String &frame_text);
+    static int ansiToColor(const int &code);
+    static int ansi256ToColor(const int &code);
+
+    static void applyStyle(int code, Segment &seg);
+
+    static void applyArgs(Segment &seg, const godot::String &args);
+
+    void getHighlighting(const godot::String &ansi_string, godot::String &frame_text);
 
 protected:
     static void _bind_methods();
     void _notification(int p_what);
 
 public:
+    void startTerminal();
+    void endTerminal();
+    void writeToTerminal(const godot::String &text);
+    void readFromTerminal();
+
     void _ready() override;
     void _exit_tree() override;
-    void start_pseudoterminal();
-    void end_pseudoterminal();
-    void write_to_terminal(const godot::String &text);
     void _gui_input(const godot::Ref<godot::InputEvent> &event) override;
     void _process(double p_delta) override;
     void _draw() override;
-    void read_from_terminal();
+
     [[nodiscard]] std::deque<godot::Vector<Segment>> get_segments_to_line() const;
 };
 #endif
