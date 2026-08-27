@@ -6,7 +6,6 @@
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/classes/font.hpp>
 #include <sys/types.h>
-#include <queue>
 #include <deque>
 
 enum class ParseState {
@@ -55,12 +54,11 @@ class LinuxHost : public godot::TextEdit {
 
     godot::Vector2i input_start_line_col{0, 0};
 
-    int MAX_LINES_PER_FRAME{50};
     int TOTAL_MAX_LINES{22560};
 
     godot::Ref<AnsiHighlighter> highlighter;
 
-    std::deque<godot::Vector<Segment>> segments_to_line;
+    std::deque<godot::Vector<Segment>> segments;
 
     static bool fileExists(const char *path);
     void loadHistory(const uint32_t &max_lines);
@@ -95,6 +93,6 @@ public:
     void _process(double p_delta) override;
     void _draw() override;
 
-    [[nodiscard]] std::deque<godot::Vector<Segment>> get_segments_to_line() const;
+    [[nodiscard]] std::deque<godot::Vector<Segment>> getSegments() const;
 };
 #endif

@@ -28,7 +28,7 @@ godot::Dictionary AnsiHighlighter::_get_line_syntax_highlighting(const int line)
     const auto host = cast_to<LinuxHost>(get_text_edit());
     if (!host) return res;
 
-    const auto segments_per_line = host->get_segments_to_line();
+    const auto segments_per_line = host->getSegments();
     if (segments_per_line.empty()) return res;
 
     if (line < 0 || line >= segments_per_line.size()) return res;
@@ -123,8 +123,8 @@ int64_t LinuxHost::getRelativeCaretIndex() const {
 
 void LinuxHost::bulkRemove(const int32_t &to_line) {
     if (to_line <= 0) return;
-    const int32_t count = std::min(to_line, static_cast<int32_t>(segments_to_line.size()));
-    segments_to_line.erase(segments_to_line.begin(), segments_to_line.begin() + count);
+    const int32_t count = std::min(to_line, static_cast<int32_t>(segments.size()));
+    segments.erase(segments.begin(), segments.begin() + count);
 }
 
 int LinuxHost::ansiToColor(const int &code) {
@@ -230,8 +230,8 @@ void LinuxHost::getHighlighting(const godot::String &ansi_string, godot::String 
         if (parse_state == ParseState::Normal) {
             if (ch == '\e') {
                 if (!current.text.is_empty()) {
-                    if (segments_to_line.size() <= line) segments_to_line.emplace_back();
-                    segments_to_line[line].push_back(current);
+                    if (segments.size() <= line) segments.emplace_back();
+                    segments[line].push_back(current);
                     frame_text += current.text;
                     current.starting_column += static_cast<int32_t>(current.text.length());
                     current.text = "";
@@ -241,8 +241,8 @@ void LinuxHost::getHighlighting(const godot::String &ansi_string, godot::String 
             }
             if (ch == '\n') {
                 if (!current.text.is_empty()) {
-                    if (segments_to_line.size() <= line) segments_to_line.emplace_back();
-                    segments_to_line[line].push_back(current);
+                    if (segments.size() <= line) segments.emplace_back();
+                    segments[line].push_back(current);
                     frame_text += current.text;
                     current.text = "";
                 }
@@ -263,8 +263,8 @@ void LinuxHost::getHighlighting(const godot::String &ansi_string, godot::String 
         }
     }
     if (!current.text.is_empty()) {
-        if (segments_to_line.size() <= line) segments_to_line.emplace_back();
-        segments_to_line[line].push_back(current);
+        if (segments.size() <= line) segments.emplace_back();
+        segments[line].push_back(current);
         frame_text += current.text;
         current.text = "";
     }
@@ -342,13 +342,13 @@ void LinuxHost::writeToTerminal(const godot::String &text) {
 
     if (native == "clear\n") {
         clear();
-        segments_to_line.clear();
+        segments.clear();
     }
 
     if (native == "exit\n") {
         endTerminal();
         clear();
-        segments_to_line.clear();
+        segments.clear();
     }
 
     if (master_fd != -1) {
@@ -504,7 +504,7 @@ void LinuxHost::_process(double p_delta) {
 void  LinuxHost::_draw() {
     if (godot::Engine::get_singleton()->is_editor_hint()) return;
 
-    if (segments_to_line.empty()) return;
+    if (segments.empty()) return;
 
     if (font.is_null()) {
         font = get_theme_font("font", "TextEdit");
@@ -518,8 +518,8 @@ void  LinuxHost::_draw() {
     const int cell_width = static_cast<int>(font->get_char_size('W', font_size).x);
 
     for (int line = first_visible; line < last_visible; line++) {
-        if (line >= segments_to_line.size()) continue;
-        for (const auto &seg : segments_to_line[line]) {
+        if (line >= segments.size()) continue;
+        for (const auto &seg : segments[line]) {
             if (seg.bg_color == 0x000000) continue;
             const int char_column = godot::Math::max(0 , seg.starting_column);
             const godot::Rect2i rect = get_rect_at_line_column(line, char_column + 1); // get_rect_at_line_column(line, char_column) returns the rect of the previous char because that makes sense
@@ -529,6 +529,6 @@ void  LinuxHost::_draw() {
     }
 }
 
-std::deque<godot::Vector<Segment>> LinuxHost::get_segments_to_line() const {return segments_to_line;}
+std::deque<godot::Vector<Segment>> LinuxHost::getSegments() const {return segments;}
 
 #endif
