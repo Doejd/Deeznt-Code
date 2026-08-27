@@ -222,7 +222,6 @@ void LinuxHost::applyArgs(Segment &seg, const godot::String &args) {
 }
 
 void LinuxHost::getHighlighting(const godot::String &ansi_string, godot::String &frame_text) {
-    Segment current;
     godot::String cur_args;
     ParseState parse_state = ParseState::Normal;
     int32_t line{get_line_count() - 1};
@@ -516,7 +515,7 @@ void  LinuxHost::_draw() {
     const int last_visible = first_visible + get_visible_line_count();
 
     const int font_size = get_theme_font_size("font_size", "TextEdit");
-    const int cell_width = static_cast<int>(font->get_char_size('M', font_size).x);
+    const int cell_width = static_cast<int>(font->get_char_size('W', font_size).x);
 
     for (int line = first_visible; line < last_visible; line++) {
         if (line >= segments_to_line.size()) continue;
@@ -524,7 +523,7 @@ void  LinuxHost::_draw() {
             if (seg.bg_color == 0x000000) continue;
             const int char_column = godot::Math::max(0 , seg.starting_column);
             const godot::Rect2i rect = get_rect_at_line_column(line, char_column + 1); // get_rect_at_line_column(line, char_column) returns the rect of the previous char because that makes sense
-            const godot::Rect2i drawRect{rect.position, godot::Size2i{static_cast<int>(font->get_string_size(seg.text, godot::HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x) + cell_width, rect.size.height}}; // very cursed but it works
+            const godot::Rect2i drawRect{rect.position, godot::Size2i{static_cast<int>(cell_width * (seg.text.length() + 1)), rect.size.height}};
             draw_rect(drawRect, godot::Color::hex(seg.bg_color << 8 | 0xFF));
         }
     }

@@ -43,6 +43,7 @@ class LinuxHost : public godot::TextEdit {
     pid_t child_pid{-1};
     bool running{false};
 
+    Segment current;
     godot::String leftoverRead;
 
     godot::String input;
