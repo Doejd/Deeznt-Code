@@ -50,6 +50,7 @@ class WindowsHost : public godot::TextEdit {
     bool running = false;
 
     uint16_t MAX_TOTAL_LINES{22560};
+    CHAR buf[32768]; // 32KB read buffer(for ReadFile()), in order not to spike frame rate
 
     godot::String input;
     godot::Vector2i input_start_line_col{0, 0};

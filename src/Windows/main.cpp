@@ -423,14 +423,13 @@ void WindowsHost::endTerminal(){
     CloseHandle(parent_stdin_write);
     CloseHandle(parent_stdout_read);
 }
-// TODO: Implement readFromTerminal reading up to 32KB
+
 void WindowsHost::readFromTerminal(){
     if (parent_stdout_read == NULL) return;
     DWORD bytes_available = 0;
     if (!PeekNamedPipe(parent_stdout_read, NULL, 0, NULL, &bytes_available, NULL)) return;
     if (bytes_available == 0) return;
 
-    CHAR buf[4097];
     DWORD read = 0;
 
     BOOL success = ReadFile(parent_stdout_read, buf, sizeof(buf) - 1, &read, NULL);
@@ -453,14 +452,14 @@ void WindowsHost::_gui_input(const godot::Ref<godot::InputEvent> &event) {
     }
     if (keycode == godot::KEY_ENTER) {
         if (!input.strip_edges().is_empty()) history.push_back(input); history_index = static_cast<int32_t>(history.size());
-        const Vector2i line_col = highlighter->from_index_get_line_column(input_start_index);
+        const godot::Vector2i line_col = highlighter->from_index_get_line_column(input_start_index);
         remove_text(line_col.x, line_col.y, get_line_count() - 1, static_cast<int32_t>(get_line(get_line_count() - 1).length()));
-        write_to_pwsh(input);
+        writeToTerminal(input);
         input = "";
         accept_event();
         return;
     }
-    if (keycode == KEY_BACKSPACE) {
+    if (keycode == godot::KEY_BACKSPACE) {
         if (const int caret_index = get_caret_index(); caret_index > input_start_index) {
             const int rel = caret_index - input_start_index;
             input = input.substr(0, rel-1) + input.substr(rel + 1);
@@ -470,22 +469,22 @@ void WindowsHost::_gui_input(const godot::Ref<godot::InputEvent> &event) {
         accept_event();
         return;
     }
-    if (keycode == KEY_UP) {
-        if (history.is_empty()) { accept_event(); return; }
+    if (keycode == godot::KEY_UP) {
+        if (history.is_empty()) {accept_event(); return; }
         if (history_index == history.size()) history_temp = input;
         if (history_index > 0) history_index--;
         input = history[history_index];
-        const Vector2i line_col = highlighter->from_index_get_line_column(input_start_index);
+        const godot::Vector2i line_col = highlighter->from_index_get_line_column(input_start_index);
         remove_text(line_col.x, line_col.y, get_line_count() - 1, get_line(get_line_count() - 1).length());
         insert_text(input, line_col.x, line_col.y);
         accept_event();
         return;
     }
-    if (keycode == KEY_DOWN) {
+    if (keycode == godot::KEY_DOWN) {
         if (history_index < history.size()) history_index++;
         if (history_index == history.size()) input = history_temp;
         else input = history[history_index];
-        const Vector2i line_col = highlighter->from_index_get_line_column(input_start_index);
+        const godot::Vector2i line_col = highlighter->from_index_get_line_column(input_start_index);
         remove_text(line_col.x, line_col.y, get_line_count() - 1, get_line(get_line_count() - 1).length());
         insert_text(input, line_col.x, line_col.y);
         accept_event();
@@ -494,7 +493,7 @@ void WindowsHost::_gui_input(const godot::Ref<godot::InputEvent> &event) {
     if (!key_event->is_ctrl_pressed() && !key_event->is_alt_pressed()) {
         if (const char32_t unicode = key_event->get_unicode(); unicode != 0) {
             const int rel = get_caret_index() - input_start_index;
-            input = input.substr(0, rel) + String::chr(unicode) + input.substr(rel + 1);
+            input = input.substr(0, rel) + godot::String::chr(unicode) + input.substr(rel + 1);
         }
     }
 }
