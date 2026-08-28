@@ -367,19 +367,10 @@ void LinuxHost::readFromTerminal() {
     if (const int ret = poll(&pfd, 1, 0); ret <= 0) return;
 
     if (pfd.revents & (POLLIN | POLLHUP)) {
-        char buffer[4097];
-        size_t bytesRead{0};
+        const ssize_t n = read(master_fd, buffer, sizeof(buffer) - 1);
 
-        constexpr size_t MAX_BYTES = 32768; // 32 KB in order not to spike frame rate
-
-        while (bytesRead < MAX_BYTES) {
-            if (const ssize_t n = read(master_fd, buffer, sizeof(buffer) - 1); n > 0) {
-                leftoverRead += godot::String::utf8(buffer, static_cast<int>(n));
-                bytesRead += static_cast<size_t>(n);
-            }
-            else if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) break;
-            else if (n == 0 || (n < 0 && errno == EIO)) {running = false; break;}
-        }
+        if (n > 0) leftoverRead += godot::String::utf8(buffer, static_cast<int>(n));
+        else if (n == 0 || (n < 0 && errno == EIO)) running = false;
     }
 }
 

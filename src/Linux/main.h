@@ -56,6 +56,8 @@ class LinuxHost : public godot::TextEdit {
 
     int TOTAL_MAX_LINES{22560};
 
+    char buffer[32768]; // 32KB read buffer(for read()), in order not to spike frame rate
+
     godot::Ref<AnsiHighlighter> highlighter;
 
     std::deque<godot::Vector<Segment>> segments;
