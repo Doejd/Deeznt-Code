@@ -55,15 +55,16 @@ void LinuxHost::loadHistory(const uint32_t &max_lines) {
     const char* hist_path = getenv("HISTFILE");
     godot::String path;
     if (!hist_path) {
+        godot::UtilityFunctions::printerr("HISTFILE environment variable not configured, trying backup");
         const char* home_path = getenv("HOME");
-        if (!home_path) {history=godot::PackedStringArray(); return;}
+        if (!home_path) {godot::UtilityFunctions::printerr("Could not locate home path (backup) file/history is only local"); return;}
         path = godot::String(home_path) + "/.bash_history";
     }
     else path = hist_path;
-    if (!fileExists(path.utf8().get_data())) {history=godot::PackedStringArray(); return;}
+    if (!fileExists(path.utf8().get_data())) {godot::UtilityFunctions::printerr("Could not locate history file/history is only local"); return;}
 
     const godot::Ref<godot::FileAccess> file = godot::FileAccess::open(godot::String(path), godot::FileAccess::READ);
-    if (file.is_null()) {history=godot::PackedStringArray(); return;}
+    if (file.is_null()) {godot::UtilityFunctions::printerr("Could not locate history file/history is only local"); return;}
 
     const auto file_size = file->get_length();
 
@@ -290,12 +291,12 @@ void LinuxHost::_notification(int p_what) {
 
 void LinuxHost::startTerminal(){
     if (running) return;
-    if (openpty(&master_fd, &slave_fd, nullptr, nullptr, nullptr) == -1) {godot::UtilityFunctions::print("Openpty Failed"); return;}
+    if (openpty(&master_fd, &slave_fd, nullptr, nullptr, nullptr) == -1) {godot::UtilityFunctions::printerr("Openpty Failed"); return;}
     const int flags = fcntl(master_fd, F_GETFL, 0);
     fcntl(master_fd, F_SETFL, flags | O_NONBLOCK);
 
     child_pid = fork();
-    if (child_pid == -1) {godot::UtilityFunctions::print("Fork Failed"); return;}
+    if (child_pid == -1) {godot::UtilityFunctions::printerr("Fork Failed"); return;}
 
     if (child_pid == 0){
         close(master_fd);
