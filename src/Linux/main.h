@@ -77,6 +77,7 @@ class LinuxHost : public godot::TextEdit {
 
     static void applyArgs(Segment &seg, const godot::String &args);
 
+    void pushToSegments(const int32_t &line, godot::String &frame_text);
     void getHighlighting(const godot::String &ansi_string, godot::String &frame_text);
 
 protected:

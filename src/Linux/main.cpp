@@ -222,6 +222,16 @@ void LinuxHost::applyArgs(Segment &seg, const godot::String &args) {
     }
 }
 
+void LinuxHost::pushToSegments(const int32_t &line, godot::String &frame_text) {
+    if (!current.text.is_empty()) {
+        if (segments.size() <= line) segments.emplace_back();
+        segments[line].push_back(current);
+        frame_text += current.text;
+        current.starting_column += static_cast<int32_t>(current.text.length());
+        current.text = "";
+    }
+}
+
 void LinuxHost::getHighlighting(const godot::String &ansi_string, godot::String &frame_text) {
     godot::String cur_args;
     ParseState parse_state = ParseState::Normal;
@@ -230,23 +240,12 @@ void LinuxHost::getHighlighting(const godot::String &ansi_string, godot::String 
         const auto ch = ansi_string[i];
         if (parse_state == ParseState::Normal) {
             if (ch == '\e') {
-                if (!current.text.is_empty()) {
-                    if (segments.size() <= line) segments.emplace_back();
-                    segments[line].push_back(current);
-                    frame_text += current.text;
-                    current.starting_column += static_cast<int32_t>(current.text.length());
-                    current.text = "";
-                }
+                pushToSegments(line, frame_text);
                 parse_state = ParseState::Escape;
                 continue;
             }
             if (ch == '\n') {
-                if (!current.text.is_empty()) {
-                    if (segments.size() <= line) segments.emplace_back();
-                    segments[line].push_back(current);
-                    frame_text += current.text;
-                    current.text = "";
-                }
+                pushToSegments(line, frame_text);
                 frame_text += '\n';
                 line++;
                 current.starting_column = 0;
@@ -260,15 +259,15 @@ void LinuxHost::getHighlighting(const godot::String &ansi_string, godot::String 
         }
         else {
             if (ch == 'm') {applyArgs(current, cur_args); parse_state = ParseState::Normal;}
+            else if (ch == 'J') {parse_state = ParseState::Normal; segments.clear();}
+            else if (ch == 'K' || ch == 'H' || ch == 'f' || ch == 'A' || ch == 'B' || ch == 'C' || ch == 'D' || ch == 'h' || ch == 'l' || ch == 'r') {
+                parse_state = ParseState::Normal;
+                cur_args = "";
+            }
             else if (ch != '\n') cur_args += ch;
         }
     }
-    if (!current.text.is_empty()) {
-        if (segments.size() <= line) segments.emplace_back();
-        segments[line].push_back(current);
-        frame_text += current.text;
-        current.text = "";
-    }
+    pushToSegments(line, frame_text);
 }
 
 void LinuxHost::_bind_methods(){
