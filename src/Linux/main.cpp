@@ -261,10 +261,7 @@ void LinuxHost::getHighlighting(const godot::String &ansi_string, godot::String 
         else {
             if (ch == 'm') {applyArgs(current, cur_args); parse_state = ParseState::Normal;}
             else if (ch == 'J') {parse_state = ParseState::Normal; segments.clear();}
-            else if (ch == 'K' || ch == 'H' || ch == 'f' || ch == 'A' || ch == 'B' || ch == 'C' || ch == 'D' || ch == 'h' || ch == 'l' || ch == 'r') {
-                parse_state = ParseState::Normal;
-                cur_args = "";
-            }
+            else if (ch >= '@' && ch <= '~') parse_state = ParseState::Normal;
             else if (ch != '\n') cur_args += ch;
         }
     }
