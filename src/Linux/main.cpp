@@ -150,7 +150,8 @@ int LinuxHost::ansiToColor(const int &code) {
 }
 
 int LinuxHost::ansi256ToColor(const int &code){
-    if (code >= 16 && code <= 231){
+    if (code < 16) return ansiToColor(code);
+    if (code <= 231) {
         const int idx = code - 16;
 
         const int r = idx / 36;
