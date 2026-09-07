@@ -20,6 +20,7 @@ struct Segment {
     uint32_t color{0xffffff};
     uint32_t bg_color{0x000000};
     int32_t starting_column{0};
+    bool hasBg{false};
     bool bold{false};
 };
 

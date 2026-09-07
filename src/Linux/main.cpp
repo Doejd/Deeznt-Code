@@ -170,18 +170,19 @@ int LinuxHost::ansi256ToColor(const int &code){
 void LinuxHost::applyStyle(const int code, Segment &seg){
     switch(code){
         case 0:
-            seg.color = 0xffffff;
-            seg.bg_color = 0x000000;
             seg.bold = false;
+            seg.hasBg = false;
+            seg.bg_color = 0x000000;
+            seg.color = 0xffffff;
             break;
 
         case 1: seg.bold = true; break;
         case 22: seg.bold = false; break;
 
         case 30 ... 37: seg.color = ansiToColor(code - 30); break;
-        case 40 ... 47: seg.bg_color = ansiToColor(code - 40); break;
+        case 40 ... 47: seg.bg_color = ansiToColor(code - 40); seg.hasBg = true; break;
         case 90 ... 97: seg.color = ansiToColor(code - 90 + 8); break;
-        case 100 ... 107: seg.bg_color = ansiToColor(code - 100 + 8); break;
+        case 100 ... 107: seg.bg_color = ansiToColor(code - 100 + 8); seg.hasBg = true; break;
         default: ;
     }
 }
@@ -199,7 +200,7 @@ void LinuxHost::applyArgs(Segment &seg, const godot::String &args) {
                 const int rgb = ansi256ToColor(idx);
 
                 if (is_fg) seg.color = rgb;
-                else seg.bg_color = rgb;
+                else {seg.bg_color = rgb; seg.hasBg = true;}
 
                 i += 3;
                 continue;
@@ -210,7 +211,7 @@ void LinuxHost::applyArgs(Segment &seg, const godot::String &args) {
                 const int b = static_cast<int>(params[i+4].to_int());
 
                 if (is_fg) seg.color = r << 16 | g << 8 | b;
-                else seg.bg_color = r << 16 | g << 8 | b;
+                else {seg.bg_color = r << 16 | g << 8 | b; seg.hasBg = true;}
 
                 i += 5;
                 continue;
@@ -260,7 +261,7 @@ void LinuxHost::getHighlighting(const godot::String &ansi_string, godot::String 
         }
         else {
             if (ch == 'm') {applyArgs(current, cur_args); parse_state = ParseState::Normal;}
-            else if (ch == 'J') {parse_state = ParseState::Normal; segments.clear();}
+            else if (ch == 'J') {parse_state = ParseState::Normal; segments.clear(); clear();}
             else if (ch >= '@' && ch <= '~') parse_state = ParseState::Normal;
             else if (ch != '\n') cur_args += ch;
         }
@@ -509,7 +510,7 @@ void  LinuxHost::_draw() {
     for (int line = first_visible; line < last_visible; line++) {
         if (line >= segments.size()) continue;
         for (const auto &seg : segments[line]) {
-            if (seg.bg_color == 0x000000) continue;
+            if (!seg.hasBg) continue;
             const int char_column = godot::Math::max(0 , seg.starting_column);
             const godot::Rect2i rect = get_rect_at_line_column(line, char_column + 1); // get_rect_at_line_column(line, char_column) returns the rect of the previous char because that makes sense
             const godot::Rect2i drawRect{rect.position, godot::Size2i{static_cast<int>(cell_width * (seg.text.length() + 1)), rect.size.height}};
