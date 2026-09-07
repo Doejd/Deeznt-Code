@@ -225,13 +225,12 @@ void LinuxHost::applyArgs(Segment &seg, const godot::String &args) {
 }
 
 void LinuxHost::pushToSegments(const int32_t &line, godot::String &frame_text) {
-    if (!current.text.is_empty()) {
-        if (segments.size() <= line) segments.emplace_back();
-        segments[line].push_back(current);
-        frame_text += current.text;
-        current.starting_column += static_cast<int32_t>(current.text.length());
-        current.text = "";
-    }
+    if (current.text.is_empty()) return;
+    if (segments.size() <= line) segments.emplace_back();
+    segments[line].push_back(current);
+    frame_text += current.text;
+    current.starting_column += static_cast<int32_t>(current.text.length());
+    current.text = "";
 }
 
 void LinuxHost::getHighlighting(const godot::String &ansi_string, godot::String &frame_text) {
