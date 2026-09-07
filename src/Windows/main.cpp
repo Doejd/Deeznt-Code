@@ -1,22 +1,19 @@
-#define _CRT_SECURE_NO__WARNINGS
 #define WIN32_LEAN_AND_MEAN
 
 #include "main.h"
 #include <godot_cpp/core/class_db.hpp>
+#include <godot_cpp/classes/engine.hpp>
+#include <godot_cpp/classes/file_access.hpp>
 #include <godot_cpp/classes/global_constants.hpp>
-#include <godot_cpp/classes/input.hpp>
 #include <godot_cpp/classes/input_event.hpp>
 #include <godot_cpp/classes/input_event_action.hpp>
 #include <godot_cpp/classes/input_event_key.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <winbase.h>
-#include <thread>
+#include <cstdlib>
 #include <string>
-#include <regex>
-#include <cctype>
 
-#include "godot_cpp/classes/engine.hpp"
-#include "godot_cpp/classes/file_access.hpp"
+void AnsiHighlighter::_bind_methods() {}
 
 godot::Dictionary AnsiHighlighter::_get_line_syntax_highlighting(const int line) const{
     godot::Dictionary res;
@@ -42,23 +39,17 @@ godot::Dictionary AnsiHighlighter::_get_line_syntax_highlighting(const int line)
     return res;
 }
 
-void AnsiHighlighter::_bind_methods() {}
-
 bool WindowsHost::fileExists(const char *path) {
-    if(INVALID_FILE_ATTRIBUTES == GetFileAttributes(path)) return false;
-    return true;
+    if (!path) return false;
+    DWORD attr = GetFileAttributesA(path);
+    return (attr != INVALID_FILE_ATTRIBUTES && !(attr & FILE_ATTRIBUTE_DIRECTORY));
 }
 
 void WindowsHost::loadHistory(const uint32_t &max_lines) {
-    const char* hist_path = getenv("HISTFILE");
-    godot::String path;
-    if (!hist_path) {
-        const char* home_path = getenv("HOME");
-        if (!home_path) return;
-        path = godot::String(home_path) + "/.bash_history";
-    }
-    else path = hist_path;
-    if (!fileExists(path.utf8().get_data())) return;
+    const char* home_path = std::getenv("APPDATA");
+    if (!home_path) {godot::UtilityFunctions::printerr("Appdata env variable not configured/history will be local only"); return;}
+    godot::String path = godot::String(home_path) + "/Microsoft/Windows/PowerShell/PSReadLine/ConsoleHost_history.txt";
+    if (!fileExists(path.utf8().get_data())) {godot::UtilityFunctions::printerr("Could not locate history file/history will be local only"); return;}
 
     const godot::Ref<godot::FileAccess> file = godot::FileAccess::open(godot::String(path), godot::FileAccess::READ);
 
@@ -82,6 +73,8 @@ void WindowsHost::loadHistory(const uint32_t &max_lines) {
     }
 
     file->close();
+
+    buffer = buffer.replace("\r\n", "\n");
 
     godot::PackedStringArray lines = buffer.split("\n", false);
     if (lines.size() > max_lines) lines = lines.slice(lines.size() - max_lines, lines.size());
@@ -146,7 +139,8 @@ int WindowsHost::ansiToColor(const int &code) {
 }
 
 int WindowsHost::ansi256ToColor(const int &code){
-    if (code >= 16 && code <= 231){
+    if (code < 16) return ansiToColor(code);
+    if (code <= 231){
         const int idx = code - 16;
 
         const int r = idx / 36;
@@ -166,7 +160,10 @@ int WindowsHost::ansi256ToColor(const int &code){
 void WindowsHost::applyStyle(const int code, Segment &seg){
     switch(code){
         case 0:
-            seg = Segment();
+            seg.bold = false;
+            seg.hasBg = false;
+            seg.bg_color = 0x000000;
+            seg.color = 0xffffff;
             break;
 
         case 1: seg.bold = true; break;
@@ -189,7 +186,7 @@ void WindowsHost::applyStyle(const int code, Segment &seg){
         case 44:
         case 45:
         case 46:
-        case 47: seg.bg_color = ansiToColor(code - 40); break;
+        case 47: seg.bg_color = ansiToColor(code - 40); seg.hasBg = true; break;
 
         case 90:
         case 91:
@@ -207,7 +204,7 @@ void WindowsHost::applyStyle(const int code, Segment &seg){
         case 104:
         case 105:
         case 106:
-        case 107: seg.bg_color = ansiToColor(code - 100 + 8); break;
+        case 107: seg.bg_color = ansiToColor(code - 100 + 8); seg.hasBg = true; break;
 
         default: ;
     }
@@ -226,19 +223,18 @@ void WindowsHost::applyArgs(Segment &seg, const godot::String &args){
                 const int rgb = ansi256ToColor(idx);
 
                 if (is_fg) seg.color = rgb;
-                else seg.bg_color = rgb;
+                else {seg.bg_color = rgb; seg.hasBg = true;}
 
                 i += 3;
                 continue;
             }
-            if (mode == 2){
+            if (mode == 2) {
                 const int r = static_cast<int>(params[i+2].to_int());
                 const int g = static_cast<int>(params[i+3].to_int());
                 const int b = static_cast<int>(params[i+4].to_int());
 
                 if (is_fg) seg.color = r << 16 | g << 8 | b;
-                else seg.bg_color = r << 16 | g << 8 | b;
-
+                else {seg.bg_color = r << 16 | g << 8 | b; seg.hasBg = true;}
                 i += 5;
                 continue;
             }
@@ -250,31 +246,30 @@ void WindowsHost::applyArgs(Segment &seg, const godot::String &args){
     }
 }
 
-void WindowsHost::getHighlighting(const godot::String &ansi_string, godot::String &frame_text){
+void WindowsHost::pushToSegments(const int32_t &line, godot::String &frame_text) {
+    if (current.text.is_empty()) return;
+    if (segments.size() <= line) segments.resize(line + 1);
+    segments[line].push_back(current);
+    frame_text += current.text;
+    current.starting_column += static_cast<int32_t>(current.text.length());
+    current.text = "";
+}
+
+void WindowsHost::getHighlighting(godot::String &ansi_string, godot::String &frame_text){
+    ansi_string = ansi_string.replace("\r\n", "\n");
     godot::String cur_args;
     ParseState parse_state = ParseState::Normal;
     int32_t line{get_line_count() - 1};
     for (int i{0}; i < ansi_string.length(); i++) {
         const auto ch = ansi_string[i];
         if (parse_state == ParseState::Normal) {
-            if (ch == '\e') {
-                if (!current.text.is_empty()) {
-                    if (segments.size() <= line) segments.emplace_back();
-                    segments[line].push_back(current);
-                    frame_text += current.text;
-                    current.starting_column += static_cast<int32_t>(current.text.length());
-                    current.text = "";
-                }
+            if (ch == '\x1b') {
+                pushToSegments(line, frame_text);
                 parse_state = ParseState::Escape;
                 continue;
             }
             if (ch == '\n') {
-                if (!current.text.is_empty()) {
-                    if (segments.size() <= line) segments.emplace_back();
-                    segments[line].push_back(current);
-                    frame_text += current.text;
-                    current.text = "";
-                }
+                pushToSegments(line, frame_text);
                 frame_text += '\n';
                 line++;
                 current.starting_column = 0;
@@ -288,15 +283,13 @@ void WindowsHost::getHighlighting(const godot::String &ansi_string, godot::Strin
         }
         else {
             if (ch == 'm') {applyArgs(current, cur_args); parse_state = ParseState::Normal;}
+            else if (ch == 'J') {parse_state = ParseState::Normal; segments.clear(); clear();}
+            else if (ch >= '@' && ch <= '~') parse_state = ParseState::Normal;
             else if (ch != '\n') cur_args += ch;
+
         }
     }
-    if (!current.text.is_empty()) {
-        if (segments.size() <= line) segments.emplace_back();
-        segments[line].push_back(current);
-        frame_text += current.text;
-        current.text = "";
-    }
+    pushToSegments(line, frame_text);
 }
 
 void WindowsHost::_bind_methods(){
@@ -316,6 +309,99 @@ void WindowsHost::_notification(int p_what) {
         default: break;
     }
 }
+
+void WindowsHost::startTerminal(){
+    if(!CreatePipe(&child_stdin_read, &parent_stdin_write, &sa, 0) ||
+       !CreatePipe(&parent_stdout_read, &child_stdout_write, &sa, 0)){
+        return;
+    }
+    HRESULT hr = CreatePseudoConsole(size, child_stdin_read, child_stdout_write, 0, &hPC);
+    if (FAILED(hr)) {
+        return;
+    }
+    ZeroMemory(&si, sizeof(si));
+    si.StartupInfo.cb = sizeof(si);
+    InitializeProcThreadAttributeList(NULL, 1, 0, &attrSize);
+    si.lpAttributeList = (LPPROC_THREAD_ATTRIBUTE_LIST)HeapAlloc(GetProcessHeap(), 0, attrSize);
+    if (!si.lpAttributeList){
+        godot::UtilityFunctions::printerr("Failed to allocate memory, HeapAlloc() -> Failed");
+        return;
+    }
+    if (!InitializeProcThreadAttributeList(si.lpAttributeList, 1, 0, &attrSize)){
+        godot::UtilityFunctions::printerr("InitializeProcThreadAttributeList() -> Failed");
+        return;
+    }
+    if(!UpdateProcThreadAttribute(si.lpAttributeList, 0, PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE, hPC, sizeof(hPC), NULL, NULL)){
+        godot::UtilityFunctions::printerr("UpdateProcThreadAttribute() -> Failed");
+    }
+    if(!CreateProcessW(
+        L"C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+        NULL,
+        NULL, NULL,
+        TRUE,
+        EXTENDED_STARTUPINFO_PRESENT,
+        NULL,
+        NULL,
+        &si.StartupInfo,
+        &pi)){
+        godot::UtilityFunctions::printerr("CreateProcessW() -> Failed");
+        return;
+    }
+    CloseHandle(child_stdin_read);
+    CloseHandle(child_stdout_write);
+
+    loadHistory(500);
+}
+
+void WindowsHost::endTerminal(){
+    running = false;
+    ClosePseudoConsole(hPC);
+    CloseHandle(pi.hThread);
+    CloseHandle(pi.hProcess);
+    DeleteProcThreadAttributeList(si.lpAttributeList);
+    HeapFree(GetProcessHeap(), 0, (LPVOID)si.lpAttributeList);
+    CloseHandle(parent_stdin_write);
+    CloseHandle(parent_stdout_read);
+}
+
+void WindowsHost::writeToTerminal(const godot::String &text){
+    if (parent_stdin_write == nullptr) return;
+    const godot::String full_input = text + godot::String::chr('\r');
+    const std::string utf8_input = full_input.utf8().get_data();
+
+    if (text == "cls") {
+        clear();
+        segments.clear();
+    }
+
+    DWORD written = 0;
+    BOOL success = WriteFile(
+        parent_stdin_write,
+        utf8_input.c_str(),
+        (DWORD)utf8_input.size(),
+        &written,
+        NULL
+    );
+
+    if (!success) godot::UtilityFunctions::printerr("WriteFile() -> Failed");
+}
+
+void WindowsHost::readFromTerminal(){
+    if (parent_stdout_read == NULL) return;
+    DWORD bytes_available = 0;
+    if (!PeekNamedPipe(parent_stdout_read, NULL, 0, NULL, &bytes_available, NULL)) return;
+    if (bytes_available == 0) return;
+
+    DWORD read = 0;
+
+    BOOL success = ReadFile(parent_stdout_read, buf, sizeof(buf) - 1, &read, NULL);
+    if (!success || read == 0) return;
+
+    buf[read] = '\0';
+
+    leftoverRead += godot::String::utf8(buf);
+}
+
 
 void WindowsHost::_ready() {
     if (godot::Engine::get_singleton()->is_editor_hint()) {
@@ -341,7 +427,71 @@ void WindowsHost::_ready() {
 }
 
 void WindowsHost::_exit_tree(){
-    end_pseudoconsole_session();
+    endTerminal();
+}
+
+void WindowsHost::_gui_input(const godot::Ref<godot::InputEvent> &event) {
+    const godot::Ref<godot::InputEventKey> key_event = event;
+    if (event->is_class("InputEventMouseButton") || event->is_class("InputEventMouseMotion")) clampCaret();
+    if (!key_event.is_valid() || !key_event->is_pressed()) return;
+    if (!has_focus()) return;
+    const int keycode = key_event->get_keycode();
+    if (keycode == godot::KEY_LEFT || keycode == godot::KEY_PAGEUP || keycode == godot::KEY_HOME) {
+        if (clampCaret()) accept_event();
+        return;
+    }
+    if (keycode == godot::KEY_C && key_event->is_ctrl_pressed()) {
+        DWORD written = 0;
+        char ctrlC = 0x03;
+        WriteFile(parent_stdin_write, &ctrlC, 1, &written, nullptr);
+
+        input = "";
+        accept_event();
+        return;
+    }
+    if (keycode == godot::KEY_ENTER) {
+        if (!input.strip_edges().is_empty()) history.push_back(input); history_index = static_cast<int32_t>(history.size());
+        remove_text(input_start_line_col.x, input_start_line_col.y, get_line_count() - 1, static_cast<int32_t>(get_line(get_line_count() - 1).length()));
+        writeToTerminal(input);
+        input = "";
+        accept_event();
+        return;
+    }
+    if (keycode == godot::KEY_BACKSPACE) {
+        if (const int64_t rel = getRelativeCaretIndex(); rel > 0 && rel <= input.length()) {
+            input = input.substr(0, rel - 1) + input.substr(rel);
+            backspace();
+        }
+        accept_event();
+        return;
+    }
+    if (keycode == godot::KEY_UP) {
+        if (history.is_empty()) {accept_event(); return;}
+        if (history_index == history.size()) history_temp = input;
+        history_index = std::max(0, history_index - 1);
+        input = history[history_index];
+        remove_text(input_start_line_col.x, input_start_line_col.y, get_line_count() - 1, static_cast<int32_t>(get_line(get_line_count() - 1).length()));
+        insert_text(input,input_start_line_col.x, input_start_line_col.y);
+        accept_event();
+        return;
+    }
+    if (keycode == godot::KEY_DOWN) {
+        history_index = std::min(static_cast<int32_t>(history.size()) , history_index + 1);
+        if (history_index == history.size()) input = history_temp;
+        else if (history_index < history.size()) input = history[history_index];
+        remove_text(input_start_line_col.x, input_start_line_col.y, get_line_count() - 1, static_cast<int32_t>(get_line(get_line_count() - 1).length()));
+        insert_text(input,input_start_line_col.x, input_start_line_col.y);
+        accept_event();
+        return;
+    }
+    if (!key_event->is_ctrl_pressed() && !key_event->is_alt_pressed()) {
+        const char32_t unicode = key_event->get_unicode();
+        if (unicode == 0) return;
+        if (const int64_t rel = getRelativeCaretIndex(); rel >= 0 && rel <= input.length()) {
+            input = input.substr(0, rel) + godot::String::chr(unicode) + input.substr(rel);
+        }
+        else accept_event();
+    }
 }
 
 void WindowsHost::_process(double p_delta) {
@@ -371,153 +521,32 @@ void WindowsHost::_process(double p_delta) {
     queue_redraw();
 }
 
-void WindowsHost::startTerminal(){
-    if(!CreatePipe(&child_stdin_read, &parent_stdin_write, &sa, 0) ||
-    !CreatePipe(&parent_stdout_read, &child_stdout_write, &sa, 0)){
-        return;
-    }
-    HRESULT hr = CreatePseudoConsole(size, child_stdin_read, child_stdout_write, 0, &hPC);
-    if (FAILED(hr)) {
-        return;
-    }
-    ZeroMemory(&si, sizeof(si));
-    si.StartupInfo.cb = sizeof(si);
-    InitializeProcThreadAttributeList(NULL, 1, 0, &attrSize);
-    si.lpAttributeList = (LPPROC_THREAD_ATTRIBUTE_LIST)HeapAlloc(GetProcessHeap(), 0, attrSize);
-    if (!si.lpAttributeList){
-        godot::UtilityFunctions::print("Failed to allocate memory, HeapAlloc() -> Failed");
-        return;
-    }
-    if (!InitializeProcThreadAttributeList(si.lpAttributeList, 1, 0, &attrSize)){
-        UtilityFunctions::print("InitializeProcThreadAttributeList() -> Failed");
-        return;
-    }
-    if(!UpdateProcThreadAttribute(si.lpAttributeList, 0, PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE, hPC, sizeof(hPC), NULL, NULL)){
-        godot::UtilityFunctions::print("UpdateProcThreadAttribute() -> Failed");
-    }
-    if(!CreateProcessW(
-        L"c:\\Windows\\System32\\cmd.exe",
-        NULL,
-        NULL, NULL,
-        TRUE,
-        EXTENDED_STARTUPINFO_PRESENT,
-        NULL,
-        NULL,
-        &si.StartupInfo,
-        &pi)){
-            godot::UtilityFunctions::print("CreateProcessW() -> Failed");
-            return;
-    }
-    CloseHandle(child_stdin_read);
-    CloseHandle(child_stdout_write);
-}
+void  WindowsHost::_draw() {
+    if (godot::Engine::get_singleton()->is_editor_hint()) return;
 
+    if (segments.empty()) return;
 
-void WindowsHost::endTerminal(){
-    running = false;
-    ClosePseudoConsole(hPC);
-    CloseHandle(pi.hThread);
-    CloseHandle(pi.hProcess);
-    DeleteProcThreadAttributeList(si.lpAttributeList);
-    HeapFree(GetProcessHeap(), 0, (LPVOID)si.lpAttributeList);
-    CloseHandle(parent_stdin_write);
-    CloseHandle(parent_stdout_read);
-}
-
-void WindowsHost::readFromTerminal(){
-    if (parent_stdout_read == NULL) return;
-    DWORD bytes_available = 0;
-    if (!PeekNamedPipe(parent_stdout_read, NULL, 0, NULL, &bytes_available, NULL)) return;
-    if (bytes_available == 0) return;
-
-    DWORD read = 0;
-
-    BOOL success = ReadFile(parent_stdout_read, buf, sizeof(buf) - 1, &read, NULL);
-    if (!success || read == 0) return;
-
-    buf[read] = '\0';
-
-    leftoverRead += godot::String::utf8(buf);
-}
-
-// TODO: _gui_input needs to be reworked with CTRL + C
-void WindowsHost::_gui_input(const godot::Ref<godot::InputEvent> &event) {
-    const godot::Ref<godot::InputEventKey> key_event = event;
-    if (event->is_class("InputEventMouseButton") || event->is_class("InputEventMouseMotion")) clampCaret();
-    if (!key_event.is_valid() || !key_event->is_pressed()) return;
-    const int keycode = key_event->get_keycode();
-    if (keycode == godot::KEY_LEFT || keycode == godot::KEY_PAGEUP || keycode == godot::KEY_HOME) {
-        clampCaret();
+    if (font.is_null()) {
+        font = get_theme_font("font", "TextEdit");
         return;
     }
-    if (keycode == godot::KEY_ENTER) {
-        if (!input.strip_edges().is_empty()) history.push_back(input); history_index = static_cast<int32_t>(history.size());
-        const godot::Vector2i line_col = highlighter->from_index_get_line_column(input_start_index);
-        remove_text(line_col.x, line_col.y, get_line_count() - 1, static_cast<int32_t>(get_line(get_line_count() - 1).length()));
-        writeToTerminal(input);
-        input = "";
-        accept_event();
-        return;
-    }
-    if (keycode == godot::KEY_BACKSPACE) {
-        if (const int caret_index = get_caret_index(); caret_index > input_start_index) {
-            const int rel = caret_index - input_start_index;
-            input = input.substr(0, rel-1) + input.substr(rel + 1);
-            backspace();
-        }
-        else clamp_caret();
-        accept_event();
-        return;
-    }
-    if (keycode == godot::KEY_UP) {
-        if (history.is_empty()) {accept_event(); return; }
-        if (history_index == history.size()) history_temp = input;
-        if (history_index > 0) history_index--;
-        input = history[history_index];
-        const godot::Vector2i line_col = highlighter->from_index_get_line_column(input_start_index);
-        remove_text(line_col.x, line_col.y, get_line_count() - 1, get_line(get_line_count() - 1).length());
-        insert_text(input, line_col.x, line_col.y);
-        accept_event();
-        return;
-    }
-    if (keycode == godot::KEY_DOWN) {
-        if (history_index < history.size()) history_index++;
-        if (history_index == history.size()) input = history_temp;
-        else input = history[history_index];
-        const godot::Vector2i line_col = highlighter->from_index_get_line_column(input_start_index);
-        remove_text(line_col.x, line_col.y, get_line_count() - 1, get_line(get_line_count() - 1).length());
-        insert_text(input, line_col.x, line_col.y);
-        accept_event();
-        return;
-    }
-    if (!key_event->is_ctrl_pressed() && !key_event->is_alt_pressed()) {
-        if (const char32_t unicode = key_event->get_unicode(); unicode != 0) {
-            const int rel = get_caret_index() - input_start_index;
-            input = input.substr(0, rel) + godot::String::chr(unicode) + input.substr(rel + 1);
+
+    const int first_visible = get_first_visible_line();
+    const int last_visible = first_visible + get_visible_line_count();
+
+    const int font_size = get_theme_font_size("font_size", "TextEdit");
+    const int cell_width = static_cast<int>(font->get_char_size('W', font_size).x);
+
+    for (int line = first_visible; line < last_visible; line++) {
+        if (line >= segments.size()) continue;
+        for (const auto &seg : segments[line]) {
+            if (!seg.hasBg) continue;
+            const int char_column = godot::Math::max(0 , seg.starting_column);
+            const godot::Rect2i rect = get_rect_at_line_column(line, char_column + 1); // get_rect_at_line_column(line, char_column) returns the rect of the previous char because that makes sense
+            const godot::Rect2i drawRect{rect.position, godot::Size2i{static_cast<int>(cell_width * (seg.text.length() + 1)), rect.size.height}};
+            draw_rect(drawRect, godot::Color::hex(seg.bg_color << 8 | 0xFF));
         }
     }
 }
 
-void WindowsHost::writeToTerminal(const godot::String &text){
-    if (parent_stdin_write == nullptr) return;
-    const godot::String full_input = input + godot::String("\r\n");
-    const std::string utf8_input = full_input.utf8().get_data();
-
-    if (utf8_input == "cls\r\n") {
-        clear();
-        segments.clear();
-    }
-
-    DWORD written = 0;
-    BOOL success = WriteFile(
-        parent_stdin_write,
-        utf8_input.c_str(),
-        (DWORD)utf8_input.size(),
-        &written,
-        NULL
-    );
-
-    if (!success) godot::UtilityFunctions::print("WriteFile() -> Failed");
-}
-
-std::deque<godot::Vector<Segment>> WindowsHost::getSegments() const {return segments;}
+std::deque<std::vector<Segment>> WindowsHost::getSegments() const {return segments;}

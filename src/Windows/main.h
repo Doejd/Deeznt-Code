@@ -17,12 +17,12 @@ enum class ParseState {
     CSI
 };
 
-
 struct Segment {
     godot::String text{""};
     uint32_t color{0xffffff};
     uint32_t bg_color{0x000000};
     int32_t starting_column{0};
+    bool hasBg{false};
     bool bold{false};
 };
 
@@ -49,7 +49,7 @@ class WindowsHost : public godot::TextEdit {
     PROCESS_INFORMATION pi{};
     bool running = false;
 
-    uint16_t MAX_TOTAL_LINES{22560};
+    uint16_t TOTAL_MAX_LINES{22560};
     CHAR buf[32768]; // 32KB read buffer(for ReadFile()), in order not to spike frame rate
 
     godot::String input;
@@ -82,7 +82,8 @@ class WindowsHost : public godot::TextEdit {
 
     static void applyArgs(Segment &seg, const godot::String &args);
 
-    void getHighlighting(const godot::String &ansi_string, godot::String &frame_text);
+    void pushToSegments(const int32_t &line, godot::String &frame_text);
+    void getHighlighting(godot::String &ansi_string, godot::String &frame_text);
 
 protected:
     static void _bind_methods();
@@ -101,7 +102,7 @@ public:
     void _draw() override;
 
 
-    [[nodiscard]] std::deque<godot::Vector<Segment>> getSegments() const;
+    [[nodiscard]] std::deque<std::vector<Segment>> getSegments() const;
 };
 
 
