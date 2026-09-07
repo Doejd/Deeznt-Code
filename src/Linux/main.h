@@ -20,6 +20,7 @@ struct Segment {
     uint32_t color{0xffffff};
     uint32_t bg_color{0x000000};
     int32_t starting_column{0};
+    bool hasBg{false};
     bool bold{false};
 };
 
@@ -77,6 +78,7 @@ class LinuxHost : public godot::TextEdit {
 
     static void applyArgs(Segment &seg, const godot::String &args);
 
+    void pushToSegments(const int32_t &line, godot::String &frame_text);
     void getHighlighting(const godot::String &ansi_string, godot::String &frame_text);
 
 protected:

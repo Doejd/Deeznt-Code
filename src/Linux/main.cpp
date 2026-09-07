@@ -55,15 +55,16 @@ void LinuxHost::loadHistory(const uint32_t &max_lines) {
     const char* hist_path = getenv("HISTFILE");
     godot::String path;
     if (!hist_path) {
+        godot::UtilityFunctions::printerr("HISTFILE environment variable not configured, trying backup");
         const char* home_path = getenv("HOME");
-        if (!home_path) {history=godot::PackedStringArray(); return;}
+        if (!home_path) {godot::UtilityFunctions::printerr("Could not locate home path (backup) file/history is only local"); return;}
         path = godot::String(home_path) + "/.bash_history";
     }
     else path = hist_path;
-    if (!fileExists(path.utf8().get_data())) {history=godot::PackedStringArray(); return;}
+    if (!fileExists(path.utf8().get_data())) {godot::UtilityFunctions::printerr("Could not locate history file/history is only local"); return;}
 
     const godot::Ref<godot::FileAccess> file = godot::FileAccess::open(godot::String(path), godot::FileAccess::READ);
-    if (file.is_null()) {history=godot::PackedStringArray(); return;}
+    if (file.is_null()) {godot::UtilityFunctions::printerr("Could not locate history file/history is only local"); return;}
 
     const auto file_size = file->get_length();
 
@@ -149,7 +150,8 @@ int LinuxHost::ansiToColor(const int &code) {
 }
 
 int LinuxHost::ansi256ToColor(const int &code){
-    if (code >= 16 && code <= 231){
+    if (code < 16) return ansiToColor(code);
+    if (code <= 231) {
         const int idx = code - 16;
 
         const int r = idx / 36;
@@ -168,18 +170,19 @@ int LinuxHost::ansi256ToColor(const int &code){
 void LinuxHost::applyStyle(const int code, Segment &seg){
     switch(code){
         case 0:
-            seg.color = 0xffffff;
-            seg.bg_color = 0x000000;
             seg.bold = false;
+            seg.hasBg = false;
+            seg.bg_color = 0x000000;
+            seg.color = 0xffffff;
             break;
 
         case 1: seg.bold = true; break;
         case 22: seg.bold = false; break;
 
         case 30 ... 37: seg.color = ansiToColor(code - 30); break;
-        case 40 ... 47: seg.bg_color = ansiToColor(code - 40); break;
+        case 40 ... 47: seg.bg_color = ansiToColor(code - 40); seg.hasBg = true; break;
         case 90 ... 97: seg.color = ansiToColor(code - 90 + 8); break;
-        case 100 ... 107: seg.bg_color = ansiToColor(code - 100 + 8); break;
+        case 100 ... 107: seg.bg_color = ansiToColor(code - 100 + 8); seg.hasBg = true; break;
         default: ;
     }
 }
@@ -197,7 +200,7 @@ void LinuxHost::applyArgs(Segment &seg, const godot::String &args) {
                 const int rgb = ansi256ToColor(idx);
 
                 if (is_fg) seg.color = rgb;
-                else seg.bg_color = rgb;
+                else {seg.bg_color = rgb; seg.hasBg = true;}
 
                 i += 3;
                 continue;
@@ -208,7 +211,7 @@ void LinuxHost::applyArgs(Segment &seg, const godot::String &args) {
                 const int b = static_cast<int>(params[i+4].to_int());
 
                 if (is_fg) seg.color = r << 16 | g << 8 | b;
-                else seg.bg_color = r << 16 | g << 8 | b;
+                else {seg.bg_color = r << 16 | g << 8 | b; seg.hasBg = true;}
 
                 i += 5;
                 continue;
@@ -221,6 +224,16 @@ void LinuxHost::applyArgs(Segment &seg, const godot::String &args) {
     }
 }
 
+void LinuxHost::pushToSegments(const int32_t &line, godot::String &frame_text) {
+    if (!current.text.is_empty()) {
+        if (segments.size() <= line) segments.emplace_back();
+        segments[line].push_back(current);
+        frame_text += current.text;
+        current.starting_column += static_cast<int32_t>(current.text.length());
+        current.text = "";
+    }
+}
+
 void LinuxHost::getHighlighting(const godot::String &ansi_string, godot::String &frame_text) {
     godot::String cur_args;
     ParseState parse_state = ParseState::Normal;
@@ -229,23 +242,12 @@ void LinuxHost::getHighlighting(const godot::String &ansi_string, godot::String 
         const auto ch = ansi_string[i];
         if (parse_state == ParseState::Normal) {
             if (ch == '\e') {
-                if (!current.text.is_empty()) {
-                    if (segments.size() <= line) segments.emplace_back();
-                    segments[line].push_back(current);
-                    frame_text += current.text;
-                    current.starting_column += static_cast<int32_t>(current.text.length());
-                    current.text = "";
-                }
+                pushToSegments(line, frame_text);
                 parse_state = ParseState::Escape;
                 continue;
             }
             if (ch == '\n') {
-                if (!current.text.is_empty()) {
-                    if (segments.size() <= line) segments.emplace_back();
-                    segments[line].push_back(current);
-                    frame_text += current.text;
-                    current.text = "";
-                }
+                pushToSegments(line, frame_text);
                 frame_text += '\n';
                 line++;
                 current.starting_column = 0;
@@ -259,15 +261,12 @@ void LinuxHost::getHighlighting(const godot::String &ansi_string, godot::String 
         }
         else {
             if (ch == 'm') {applyArgs(current, cur_args); parse_state = ParseState::Normal;}
+            else if (ch == 'J') {parse_state = ParseState::Normal; segments.clear(); clear();}
+            else if (ch >= '@' && ch <= '~') parse_state = ParseState::Normal;
             else if (ch != '\n') cur_args += ch;
         }
     }
-    if (!current.text.is_empty()) {
-        if (segments.size() <= line) segments.emplace_back();
-        segments[line].push_back(current);
-        frame_text += current.text;
-        current.text = "";
-    }
+    pushToSegments(line, frame_text);
 }
 
 void LinuxHost::_bind_methods(){
@@ -290,12 +289,12 @@ void LinuxHost::_notification(int p_what) {
 
 void LinuxHost::startTerminal(){
     if (running) return;
-    if (openpty(&master_fd, &slave_fd, nullptr, nullptr, nullptr) == -1) {godot::UtilityFunctions::print("Openpty Failed"); return;}
+    if (openpty(&master_fd, &slave_fd, nullptr, nullptr, nullptr) == -1) {godot::UtilityFunctions::printerr("Openpty Failed"); return;}
     const int flags = fcntl(master_fd, F_GETFL, 0);
     fcntl(master_fd, F_SETFL, flags | O_NONBLOCK);
 
     child_pid = fork();
-    if (child_pid == -1) {godot::UtilityFunctions::print("Fork Failed"); return;}
+    if (child_pid == -1) {godot::UtilityFunctions::printerr("Fork Failed"); return;}
 
     if (child_pid == 0){
         close(master_fd);
@@ -511,7 +510,7 @@ void  LinuxHost::_draw() {
     for (int line = first_visible; line < last_visible; line++) {
         if (line >= segments.size()) continue;
         for (const auto &seg : segments[line]) {
-            if (seg.bg_color == 0x000000) continue;
+            if (!seg.hasBg) continue;
             const int char_column = godot::Math::max(0 , seg.starting_column);
             const godot::Rect2i rect = get_rect_at_line_column(line, char_column + 1); // get_rect_at_line_column(line, char_column) returns the rect of the previous char because that makes sense
             const godot::Rect2i drawRect{rect.position, godot::Size2i{static_cast<int>(cell_width * (seg.text.length() + 1)), rect.size.height}};
