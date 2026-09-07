@@ -102,13 +102,14 @@ script = ExtResource("2_0xm2m")
 layout_mode = 2
 size_flags_vertical = 3
 theme_override_fonts/font = ExtResource("5_2cqfq")
-placeholder_text = "If you are seeing this(not in the editor) then the terminal didn't work (lol). Go read the docs or smth."
+placeholder_text = "If you are see this when starting the terminal, it didn't work or exit has been typed."
 context_menu_enabled = false
 emoji_menu_enabled = false
 selecting_enabled = false
 drag_and_drop_selection_enabled = false
 middle_mouse_paste_enabled = false
 empty_selection_clipboard_enabled = false
+wrap_mode = 1
 syntax_highlighter = SubResource("AnsiHighlighter_2cqfq")
 
 [node name="Intro Window" type="Window" parent="." unique_id=1273299596]

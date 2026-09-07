@@ -4,10 +4,8 @@ project(godot_terminal LANGUAGES CXX)
 message(STATUS "CMAKE_SOURCE_DIR = ${CMAKE_SOURCE_DIR}")
 
 add_executable(godot_terminal
-        src/Linux/main.cpp
-        src/Linux/main.h
-        src/Linux/register_types.cpp
-        src/Linux/register_types.h
+        src/Linux-New/main.cpp
+        src/Linux-New/main.h
 )
 
 target_include_directories(godot_terminal PRIVATE

@@ -216,7 +216,7 @@ func _on_tab_bar_tab_clicked(tab: int) -> void:
 	from_idx = tab_bar.current_tab
 	if cur_opened_file == tab_path_arr[tab]: return
 	open_file_dir(tab_path_arr[tab], tab_bar.get_tab_title(tab))
-	editor.set_up_extensions(tab_bar.get_tab_title(tab))
+	editor.set_up_extensions(get_extension(tab_bar.get_tab_title(tab)))
 
 func _on_tab_bar_active_tab_rearranged(idx_to: int) -> void:
 	if from_idx == -1 or from_idx == idx_to: return
