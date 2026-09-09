@@ -34,13 +34,10 @@ godot::Dictionary AnsiHighlighter::_get_line_syntax_highlighting(const int line)
     if (line < 0 || line >= segments_per_line.size()) return res;
 
     for (const auto &seg : segments_per_line[line]) {
-        const int start_col = seg.starting_column;
-        const int end_col = start_col + static_cast<int32_t>(seg.text.length());
-
         godot::Dictionary style;
         style["color"] = godot::Color::hex(seg.color << 8 | 0xFF);
 
-        for (int col = start_col; col < end_col; ++col) res[static_cast<godot::Variant>(col)] = style;
+        res[static_cast<godot::Variant>(seg.starting_column)] = style;
     }
 
     return res;
@@ -239,13 +236,16 @@ void LinuxHost::getHighlighting(const godot::String &ansi_string, godot::String 
     int32_t line{get_line_count() - 1};
     for (int i{0}; i < ansi_string.length(); i++) {
         const auto ch = ansi_string[i];
+
+        if (ch == '\r') continue;
+
         if (parse_state == ParseState::Normal) {
             if (ch == '\e') {
                 pushToSegments(line, frame_text);
                 parse_state = ParseState::Escape;
                 continue;
             }
-            if (ch == '\n') {
+            if (ch == '\n' || current.starting_column + current.text.length() >= TOTAL_MAX_COLS) {
                 pushToSegments(line, frame_text);
                 frame_text += '\n';
                 line++;
@@ -518,6 +518,6 @@ void  LinuxHost::_draw() {
     }
 }
 
-std::deque<godot::Vector<Segment>> LinuxHost::getSegments() const {return segments;}
+std::deque<godot::Vector<Segment>>& LinuxHost::getSegments() {return segments;}
 
 #endif
