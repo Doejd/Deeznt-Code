@@ -22,13 +22,11 @@ platform = env["platform"]
 
 if platform == "linux":
     platform_sources = Glob("src/Linux/*.cpp")
+    env.Append(CXXFLAGS=["-fexceptions"])
     target_name = "linuxhost"
 elif platform == "windows":
     platform_sources = Glob("src/Windows/*.cpp")
     target_name = "windowshost"
-elif platform == "macos":
-    platform_sources = Glob("src/Mac/*.cpp")
-    target_name = "machost"
 else:
     print("Unsupported platform:", platform)
     Exit(1)
