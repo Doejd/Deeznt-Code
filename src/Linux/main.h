@@ -6,7 +6,7 @@
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/classes/font.hpp>
 #include <sys/types.h>
-#include <deque>
+#include "../RingBuffer/main.h"
 
 enum class ParseState {
     Normal,
@@ -55,22 +55,19 @@ class LinuxHost : public godot::TextEdit {
 
     godot::Vector2i input_start_line_col{0, 0};
 
-    uint16_t TOTAL_MAX_LINES{22560};
     uint8_t TOTAL_MAX_COLS{120};
 
-    char buffer[32768]; // 8KB read buffer(for read()), in order not to spike frame rate
+    char buffer[32768]; // 32KB read buffer(for read()), in order not to spike frame rate
 
     godot::Ref<AnsiHighlighter> highlighter;
 
-    std::deque<godot::Vector<Segment>> segments;
+    RingBuffer<godot::Vector<Segment>> segments{22560};
 
     static bool fileExists(const char *path);
     void loadHistory(const uint32_t &max_lines);
 
     bool clampCaret();
     [[nodiscard]] int64_t getRelativeCaretIndex() const;
-
-    void bulkRemove(const int32_t &to_line);
 
     static int ansiToColor(const int &code);
     static int ansi256ToColor(const int &code);
@@ -98,6 +95,6 @@ public:
     void _process(double p_delta) override;
     void _draw() override;
 
-    [[nodiscard]] std::deque<godot::Vector<Segment>>& getSegments();
+    [[nodiscard]] RingBuffer<godot::Vector<Segment>>& getSegments();
 };
 #endif

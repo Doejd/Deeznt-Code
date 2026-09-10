@@ -32,7 +32,6 @@ godot::Dictionary AnsiHighlighter::_get_line_syntax_highlighting(const int line)
     if (segments_per_line.empty()) return res;
 
     if (line < 0 || line >= segments_per_line.size()) return res;
-
     for (const auto &seg : segments_per_line[line]) {
         godot::Dictionary style;
         style["color"] = godot::Color::hex(seg.color << 8 | 0xFF);
@@ -117,12 +116,6 @@ int64_t LinuxHost::getRelativeCaretIndex() const {
     idx += caret_column;
 
     return idx;
-}
-
-void LinuxHost::bulkRemove(const int32_t &to_line) {
-    if (to_line <= 0) return;
-    const int32_t count = std::min(to_line, static_cast<int32_t>(segments.size()));
-    segments.erase(segments.begin(), segments.begin() + count);
 }
 
 int LinuxHost::ansiToColor(const int &code) {
@@ -222,8 +215,7 @@ void LinuxHost::applyArgs(Segment &seg, const godot::String &args) {
 }
 
 void LinuxHost::pushToSegments(const int32_t &line, godot::String &frame_text) {
-    if (current.text.is_empty()) return;
-    if (segments.size() <= line) segments.emplace_back();
+    while (segments.size() <= static_cast<uint32_t>(line)) {segments.push_back({});}
     segments[line].push_back(current);
     frame_text += current.text;
     current.starting_column += static_cast<int32_t>(current.text.length());
@@ -476,9 +468,9 @@ void LinuxHost::_process(double p_delta) {
 
     if (frame_text.is_empty()) return;
 
-    if (const int excess = get_line_count() - TOTAL_MAX_LINES; excess > 0) {
+    if (const int excess = get_line_count() - segments.capacity(); excess > 0) {
         remove_text(0, 0, excess, static_cast<int32_t>(get_line(excess).length()));
-        bulkRemove(excess);
+        segments.bulk_remove(excess);
         highlighter->clear_highlighting_cache();
         center_viewport_to_caret();
     }
@@ -518,6 +510,6 @@ void  LinuxHost::_draw() {
     }
 }
 
-std::deque<godot::Vector<Segment>>& LinuxHost::getSegments() {return segments;}
+RingBuffer<godot::Vector<Segment> > &LinuxHost::getSegments() {return segments;}
 
 #endif

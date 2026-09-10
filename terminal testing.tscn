@@ -1,0 +1,45 @@
+[gd_scene format=3 uid="uid://d0l1dcyec1568"]
+
+[ext_resource type="FontFile" uid="uid://d07tnsenhhjk3" path="res://Font/JetBrainsMono-Regular.ttf" id="1_jdcyt"]
+
+[sub_resource type="AnsiHighlighter" id="AnsiHighlighter_jdcyt"]
+
+[node name="Control" type="Control" unique_id=1395080692]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="ColorRect" type="ColorRect" parent="." unique_id=1421590562]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 1)
+
+[node name="LinuxHost" type="LinuxHost" parent="." unique_id=467998429]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_fonts/font = ExtResource("1_jdcyt")
+theme_override_font_sizes/font_size = 30
+text = "export TERM=xterm-256color
+dorian@dorian-OMEN-by-HP-Laptop:~/Desktop/Deeznt-Code$ <p:~/Desktop/Deeznt-Code$ export TERM=xterm-256color   
+dorian@dorian-OMEN-by-HP-Laptop:~/Desktop/Deeznt-Code$ "
+context_menu_enabled = false
+emoji_menu_enabled = false
+selecting_enabled = false
+drag_and_drop_selection_enabled = false
+middle_mouse_paste_enabled = false
+empty_selection_clipboard_enabled = false
+scroll_smooth = true
+syntax_highlighter = SubResource("AnsiHighlighter_jdcyt")
