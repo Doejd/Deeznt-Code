@@ -467,15 +467,18 @@ void LinuxHost::_process(double p_delta) {
 
     if (frame_text.is_empty()) return;
 
-    if (const int excess = get_line_count() - segments.capacity(); excess > 0) {
-        remove_text(0, 0, excess, static_cast<int32_t>(get_line(excess).length()));
+    set_caret_line(get_line_count() - 1);
+    set_caret_column(static_cast<int32_t>(get_line(get_line_count() - 1).length()));
+    insert_text_at_caret(frame_text);
+
+    if (const int excess = get_line_count() - static_cast<int>(segments.capacity()); excess > 0) {
+        remove_text(0, 0, excess, 0);
         highlighter->clear_highlighting_cache();
         center_viewport_to_caret();
     }
 
     set_caret_line(get_line_count() - 1);
     set_caret_column(static_cast<int32_t>(get_line(get_line_count() - 1).length()));
-    insert_text_at_caret(frame_text);
     input_start_line_col = {get_line_count() - 1, static_cast<int32_t>(get_line(get_line_count() - 1).length())};
     queue_redraw();
 }
