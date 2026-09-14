@@ -466,6 +466,7 @@ void LinuxHost::_process(double p_delta) {
     getHighlighting(res, frame_text);
 
     if (frame_text.is_empty()) return;
+    // test
 
     set_caret_line(get_line_count() - 1);
     set_caret_column(static_cast<int32_t>(get_line(get_line_count() - 1).length()));
