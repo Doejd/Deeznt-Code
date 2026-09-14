@@ -11,6 +11,7 @@ class RingBuffer {
 
 public:
     RingBuffer(const size_t &capacity) : capacity_(capacity) {data.resize(capacity_);}
+    ~RingBuffer() = default;
 
     void push_back(const T &x) {
         const bool isFull = full();
