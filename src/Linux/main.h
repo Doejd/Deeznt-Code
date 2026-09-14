@@ -14,7 +14,6 @@ enum class ParseState {
     CSI
 };
 
-
 struct Segment {
     godot::String text{""};
     uint32_t color{0xffffff};
@@ -22,6 +21,62 @@ struct Segment {
     int32_t starting_column{0};
     bool hasBg{false};
     bool bold{false};
+};
+
+class LineRingBuffer {
+    size_t capacity_{0}, size_{0};
+    std::vector<godot::Vector<Segment>> data;
+    size_t head{0};
+
+    size_t GetPhysicalIndex(size_t index) const {
+        return (head + index) % capacity_;
+    }
+
+public:
+    explicit LineRingBuffer(const size_t &capacity) : capacity_(capacity) , data(capacity_) {}
+    ~LineRingBuffer() = default;
+
+    void clear() {
+        for (auto &buf : data) buf.clear();
+        head = 0;
+        size_ = 0;
+    }
+
+    godot::Vector<Segment>& operator[](size_t index) {
+        return data[GetPhysicalIndex(index)];
+    }
+
+    const godot::Vector<Segment>& operator[](size_t index) const {
+        return data[GetPhysicalIndex(index)];
+    }
+
+    size_t size() const {return size_;}
+    size_t capacity() const {return capacity_;}
+
+    bool empty() const {return size_ == 0;}
+    bool full() const {return size_ == capacity_;}
+
+    void pushSegment(const Segment& seg) {
+        if (empty()) initNewLine();
+        data[GetPhysicalIndex(size_ - 1)].push_back(seg);
+    }
+
+    void initNewLine() {
+        if (capacity_ == 0) return;
+
+        size_t index;
+
+        if (size_ < capacity_) {
+            index = GetPhysicalIndex(size_);
+            ++size_;
+        }
+        else {
+            head = (head + 1) % capacity_;
+            index = GetPhysicalIndex(size_ - 1);
+        }
+
+        data[index].clear();
+    }
 };
 
 class AnsiHighlighter : public godot::SyntaxHighlighter {
@@ -44,7 +99,6 @@ class LinuxHost : public godot::TextEdit {
     bool running{false};
 
     Segment current;
-    godot::String leftoverRead;
 
     godot::String input;
     godot::Ref<godot::Font> font;
@@ -61,7 +115,7 @@ class LinuxHost : public godot::TextEdit {
 
     godot::Ref<AnsiHighlighter> highlighter;
 
-    RingBuffer<godot::Vector<Segment>> segments{22560};
+    LineRingBuffer segments{22560};
 
     static bool fileExists(const char *path);
     void loadHistory(const uint32_t &max_lines);
@@ -76,7 +130,7 @@ class LinuxHost : public godot::TextEdit {
 
     static void applyArgs(Segment &seg, const godot::String &args);
 
-    void pushToSegments(const int32_t &line, godot::String &frame_text);
+    void pushToSegments(godot::String &frame_text);
     void getHighlighting(const godot::String &ansi_string, godot::String &frame_text);
 
 protected:
@@ -87,7 +141,7 @@ public:
     void startTerminal();
     void endTerminal();
     void writeToTerminal(const godot::String &text);
-    void readFromTerminal();
+    godot::String readFromTerminal();
 
     void _ready() override;
     void _exit_tree() override;
@@ -95,6 +149,6 @@ public:
     void _process(double p_delta) override;
     void _draw() override;
 
-    [[nodiscard]] RingBuffer<godot::Vector<Segment>>& getSegments();
+    [[nodiscard]] LineRingBuffer &getSegments();
 };
 #endif
