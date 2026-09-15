@@ -10,12 +10,6 @@ env["strip"] = False
 env.Append(CPPPATH=["src"])
 
 # ---------------------------------------
-# Debug flags (optional)
-# ---------------------------------------
-env.Append(CCFLAGS=["-g", "-O0"])
-env.Append(CXXFLAGS=["-g", "-O0"])
-
-# ---------------------------------------
 # Platform specific sources
 # ---------------------------------------
 platform = env["platform"]
@@ -26,9 +20,6 @@ if platform == "linux":
 elif platform == "windows":
     platform_sources = Glob("src/Windows/*.cpp")
     target_name = "windowshost"
-elif platform == "macos":
-    platform_sources = Glob("src/Mac/*.cpp")
-    target_name = "machost"
 else:
     print("Unsupported platform:", platform)
     Exit(1)

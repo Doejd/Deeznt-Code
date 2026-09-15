@@ -369,7 +369,13 @@ void WindowsHost::writeToTerminal(const godot::String &text){
     const godot::String full_input = text + godot::String::chr('\r');
     const std::string utf8_input = full_input.utf8().get_data();
 
-    if (text == "cls") {
+    if (text.to_lower() == "cls" || text.to_lower() == "clear") {
+        clear();
+        segments.clear();
+    }
+
+    if (text.to_lower() == "exit") {
+        endTerminal();
         clear();
         segments.clear();
     }
