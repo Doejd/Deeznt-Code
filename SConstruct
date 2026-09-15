@@ -16,6 +16,7 @@ platform = env["platform"]
 
 if platform == "linux":
     platform_sources = Glob("src/Linux/*.cpp")
+    env.Append(CXXFLAGS=["-fexceptions"])
     target_name = "linuxhost"
 elif platform == "windows":
     platform_sources = Glob("src/Windows/*.cpp")

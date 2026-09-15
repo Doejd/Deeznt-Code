@@ -1,20 +1,20 @@
 [gd_scene format=3 uid="uid://d1ed3s622lfi0"]
 
-[ext_resource type="Script" uid="uid://hjy3vp4h5gop" path="res://scripts/main.gd" id="1_ig7tw"]
-[ext_resource type="Script" uid="uid://bmm87f7x4jir4" path="res://scripts/edit.gd" id="2_0xm2m"]
-[ext_resource type="Script" uid="uid://c780kq3racta8" path="res://scripts/theme_select.gd" id="2_272bh"]
-[ext_resource type="FontFile" uid="uid://cdwg8qm3yqrx2" path="res://Font/FiraCodeNerdFont-Regular.ttf" id="2_h2yge"]
-[ext_resource type="FontFile" uid="uid://cec71sm45a2b4" path="res://Font/Inconsolata-Regular.ttf" id="5_7mycd"]
-[ext_resource type="Script" uid="uid://de6i7llj5lh4s" path="res://scripts/intro_window.gd" id="6_7mycd"]
-[ext_resource type="Script" uid="uid://c13eass3ennep" path="res://scripts/never_show_again_button.gd" id="7_272bh"]
-[ext_resource type="Script" uid="uid://j1o4v584prqk" path="res://scripts/find_replace_window.gd" id="8_5vw27"]
-[ext_resource type="Script" uid="uid://c4238eckucyx8" path="res://scripts/editor_settings.gd" id="10_efxa6"]
-[ext_resource type="Script" uid="uid://bmo18ipc5sl1" path="res://scripts/savetimedelayslider.gd" id="10_vivmo"]
-[ext_resource type="Script" uid="uid://cwcxkpf1h3h03" path="res://scripts/check_box_button.gd" id="10_ycdy4"]
-[ext_resource type="Script" uid="uid://b4jbd170mgy7e" path="res://scripts/theme_setting.gd" id="11_efxa6"]
-[ext_resource type="Script" uid="uid://bqkvrmqxhb4pd" path="res://scripts/setting_slider.gd" id="11_w48qg"]
-[ext_resource type="Script" uid="uid://ddyw22oivpnav" path="res://scripts/apply_button.gd" id="12_dg77c"]
-[ext_resource type="Script" uid="uid://cnlj2q05kncor" path="res://scripts/save_to_file.gd" id="16_2cqfq"]
+[ext_resource type="Script" uid="uid://d3mjdab1o1wqs" path="res://scripts/main.gd" id="1_ig7tw"]
+[ext_resource type="Script" uid="uid://bctpagkgq0qgi" path="res://scripts/edit.gd" id="2_0xm2m"]
+[ext_resource type="Script" uid="uid://dsf42r8isrgph" path="res://scripts/theme_select.gd" id="2_272bh"]
+[ext_resource type="FontFile" uid="uid://cbkrfirh0p48" path="res://Font/FiraCodeNerdFont-Regular.ttf" id="2_h2yge"]
+[ext_resource type="FontFile" uid="uid://cfoksy326afx" path="res://Font/Inconsolata-Regular.ttf" id="5_7mycd"]
+[ext_resource type="Script" uid="uid://cads53hj1d2w1" path="res://scripts/intro_window.gd" id="6_7mycd"]
+[ext_resource type="Script" uid="uid://nkw8h3awv1jx" path="res://scripts/never_show_again_button.gd" id="7_272bh"]
+[ext_resource type="Script" uid="uid://kiqlhdva7ov2" path="res://scripts/find_replace_window.gd" id="8_5vw27"]
+[ext_resource type="Script" uid="uid://d20menqvd88ny" path="res://scripts/editor_settings.gd" id="10_efxa6"]
+[ext_resource type="Script" uid="uid://cclnmw6pl6vvs" path="res://scripts/savetimedelayslider.gd" id="10_vivmo"]
+[ext_resource type="Script" uid="uid://beyy8vwwwispa" path="res://scripts/check_box_button.gd" id="10_ycdy4"]
+[ext_resource type="Script" uid="uid://bxl70sqh5y33o" path="res://scripts/theme_setting.gd" id="11_efxa6"]
+[ext_resource type="Script" uid="uid://yahbu2hl5rq5" path="res://scripts/setting_slider.gd" id="11_w48qg"]
+[ext_resource type="Script" uid="uid://bpa6qqnghf2eh" path="res://scripts/apply_button.gd" id="12_dg77c"]
+[ext_resource type="Script" uid="uid://1q87yf05jlar" path="res://scripts/save_to_file.gd" id="16_2cqfq"]
 
 [sub_resource type="Theme" id="Theme_kek77"]
 resource_local_to_scene = true
@@ -95,7 +95,7 @@ auto_brace_completion_enabled = true
 auto_brace_completion_highlight_matching = true
 script = ExtResource("2_0xm2m")
 
-[node name="WindowsHost" type="WindowsHost" parent="Editor_Container/HBoxContainer" unique_id=846272338]
+[node name="LinuxHost" type="LinuxHost" parent="Editor_Container/HBoxContainer" unique_id=1685247105]
 layout_mode = 2
 size_flags_vertical = 3
 

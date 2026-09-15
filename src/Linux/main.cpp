@@ -29,18 +29,13 @@ godot::Dictionary AnsiHighlighter::_get_line_syntax_highlighting(const int line)
     if (!host) return res;
 
     const auto segments_per_line = host->getSegments();
-    if (segments_per_line.empty()) return res;
 
-    if (line < 0 || line >= segments_per_line.size()) return res;
-
+    if (line < 0) return res;
     for (const auto &seg : segments_per_line[line]) {
-        const int start_col = seg.starting_column;
-        const int end_col = start_col + static_cast<int32_t>(seg.text.length());
-
         godot::Dictionary style;
         style["color"] = godot::Color::hex(seg.color << 8 | 0xFF);
 
-        for (int col = start_col; col < end_col; ++col) res[static_cast<godot::Variant>(col)] = style;
+        res[static_cast<godot::Variant>(seg.starting_column)] = style;
     }
 
     return res;
@@ -120,12 +115,6 @@ int64_t LinuxHost::getRelativeCaretIndex() const {
     idx += caret_column;
 
     return idx;
-}
-
-void LinuxHost::bulkRemove(const int32_t &to_line) {
-    if (to_line <= 0) return;
-    const int32_t count = std::min(to_line, static_cast<int32_t>(segments.size()));
-    segments.erase(segments.begin(), segments.begin() + count);
 }
 
 int LinuxHost::ansiToColor(const int &code) {
@@ -224,33 +213,34 @@ void LinuxHost::applyArgs(Segment &seg, const godot::String &args) {
     }
 }
 
-void LinuxHost::pushToSegments(const int32_t &line, godot::String &frame_text) {
+void LinuxHost::pushToSegments(godot::String &frame_text) {
     if (current.text.is_empty()) return;
-    if (segments.size() <= line) segments.emplace_back();
-    segments[line].push_back(current);
     frame_text += current.text;
+    segments.pushSegment(current);
     current.starting_column += static_cast<int32_t>(current.text.length());
     current.text = "";
 }
 
 void LinuxHost::getHighlighting(const godot::String &ansi_string, godot::String &frame_text) {
     godot::String cur_args;
-    ParseState parse_state = ParseState::Normal;
-    int32_t line{get_line_count() - 1};
+    auto parse_state = ParseState::Normal;
     for (int i{0}; i < ansi_string.length(); i++) {
         const auto ch = ansi_string[i];
+
+        if (ch == '\r') continue;
+
         if (parse_state == ParseState::Normal) {
             if (ch == '\e') {
-                pushToSegments(line, frame_text);
+                pushToSegments(frame_text);
                 parse_state = ParseState::Escape;
                 continue;
             }
-            if (ch == '\n') {
-                pushToSegments(line, frame_text);
+            if (ch == '\n' || current.starting_column + current.text.length() >= TOTAL_MAX_COLS) {
+                pushToSegments(frame_text);
                 frame_text += '\n';
-                line++;
+                segments.initNewLine();
                 current.starting_column = 0;
-                continue;
+                if (ch == '\n') continue;
             }
             current.text += ch;
         }
@@ -265,7 +255,7 @@ void LinuxHost::getHighlighting(const godot::String &ansi_string, godot::String 
             else if (ch != '\n') cur_args += ch;
         }
     }
-    pushToSegments(line, frame_text);
+    pushToSegments(frame_text);
 }
 
 void LinuxHost::_bind_methods(){
@@ -355,21 +345,24 @@ void LinuxHost::writeToTerminal(const godot::String &text) {
     }
 }
 
-void LinuxHost::readFromTerminal() {
-    if (!running || master_fd == -1) return;
+godot::String LinuxHost::readFromTerminal() {
+    if (!running || master_fd == -1) return "";
+
+    godot::String res;
 
     pollfd pfd{};
     pfd.fd = master_fd;
     pfd.events = POLLIN;
 
-    if (const int ret = poll(&pfd, 1, 0); ret <= 0) return;
+    if (const int ret = poll(&pfd, 1, 0); ret <= 0) return "";
 
     if (pfd.revents & (POLLIN | POLLHUP)) {
         const ssize_t n = read(master_fd, buffer, sizeof(buffer) - 1);
 
-        if (n > 0) leftoverRead += godot::String::utf8(buffer, static_cast<int>(n));
+        if (n > 0) res = godot::String::utf8(buffer, static_cast<int>(n));
         else if (n == 0 || (n < 0 && errno == EIO)) running = false;
     }
+    return res;
 }
 
 void LinuxHost::_ready() {
@@ -466,34 +459,33 @@ void LinuxHost::_gui_input(const godot::Ref<godot::InputEvent> &event) {
 void LinuxHost::_process(double p_delta) {
     if (godot::Engine::get_singleton()->is_editor_hint()) return;
 
-    readFromTerminal();
+    const auto res = readFromTerminal();
 
     godot::String frame_text{""};
 
-    getHighlighting(leftoverRead, frame_text);
-
-    leftoverRead = "";
+    getHighlighting(res, frame_text);
 
     if (frame_text.is_empty()) return;
 
-    if (const int excess = get_line_count() - TOTAL_MAX_LINES; excess > 0) {
-        remove_text(0, 0, excess, static_cast<int32_t>(get_line(excess).length()));
-        bulkRemove(excess);
+    set_caret_line(get_line_count() - 1);
+    set_caret_column(static_cast<int32_t>(get_line(get_line_count() - 1).length()));
+    insert_text_at_caret(frame_text);
+
+    if (const int excess = get_line_count() - static_cast<int>(segments.capacity()); excess > 0) {
+        remove_text(0, 0, excess, 0);
         highlighter->clear_highlighting_cache();
         center_viewport_to_caret();
     }
 
     set_caret_line(get_line_count() - 1);
     set_caret_column(static_cast<int32_t>(get_line(get_line_count() - 1).length()));
-    insert_text_at_caret(frame_text);
     input_start_line_col = {get_line_count() - 1, static_cast<int32_t>(get_line(get_line_count() - 1).length())};
     queue_redraw();
 }
 
-void  LinuxHost::_draw() {
+void LinuxHost::_draw() {
     if (godot::Engine::get_singleton()->is_editor_hint()) return;
 
-    if (segments.empty()) return;
 
     if (font.is_null()) {
         font = get_theme_font("font", "TextEdit");
@@ -507,17 +499,16 @@ void  LinuxHost::_draw() {
     const int cell_width = static_cast<int>(font->get_char_size('W', font_size).x);
 
     for (int line = first_visible; line < last_visible; line++) {
-        if (line >= segments.size()) continue;
         for (const auto &seg : segments[line]) {
             if (!seg.hasBg) continue;
             const int char_column = godot::Math::max(0 , seg.starting_column);
-            const godot::Rect2i rect = get_rect_at_line_column(line, char_column + 1); // get_rect_at_line_column(line, char_column) returns the rect of the previous char because that makes sense
+            const godot::Rect2i rect = get_rect_at_line_column(line, char_column + 1); // EDIT: seg.starting_colum is 0-indexed, but char columns are 1-indexed in godot
             const godot::Rect2i drawRect{rect.position, godot::Size2i{static_cast<int>(cell_width * (seg.text.length() + 1)), rect.size.height}};
             draw_rect(drawRect, godot::Color::hex(seg.bg_color << 8 | 0xFF));
         }
     }
 }
 
-std::deque<godot::Vector<Segment>> LinuxHost::getSegments() const {return segments;}
+LineRingBuffer &LinuxHost::getSegments() {return segments;}
 
 #endif

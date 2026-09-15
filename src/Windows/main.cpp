@@ -286,7 +286,6 @@ void WindowsHost::getHighlighting(godot::String &ansi_string, godot::String &fra
             else if (ch == 'J') {parse_state = ParseState::Normal; segments.clear(); clear();}
             else if (ch >= '@' && ch <= '~') parse_state = ParseState::Normal;
             else if (ch != '\n') cur_args += ch;
-
         }
     }
     pushToSegments(line, frame_text);
