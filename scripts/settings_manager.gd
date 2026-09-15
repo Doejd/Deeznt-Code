@@ -4,7 +4,8 @@ var default_preference_setting_map : Dictionary = {
 	"font_size" : 16,
 	"indent_size" : 4,
 	"theme" : "Github Dark",
-	"open_tabs" : []
+	"open_tabs" : [],
+	"LastOpenPath" : "",
 }
 var default_editor_setting_map : Dictionary = {
 	"open_last_project_on_startup" : true,

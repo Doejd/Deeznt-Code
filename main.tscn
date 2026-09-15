@@ -418,7 +418,7 @@ text = "General Settings"
 [node name="Label2" type="Label" parent="Settings Window/HBoxContainer/Settings/General Settings/HBoxContainer" unique_id=155565925]
 layout_mode = 2
 size_flags_horizontal = 3
-text = "v1.3.0.0"
+text = "v1.4.5.0"
 horizontal_alignment = 2
 
 [node name="HSeparator" type="HSeparator" parent="Settings Window/HBoxContainer/Settings/General Settings" unique_id=1961354027]

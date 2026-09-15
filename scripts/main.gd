@@ -10,13 +10,12 @@ extends Control
 @onready var reload_timer : Timer = $"Reload Timer"
 @onready var SettingManager : Settings_Manager = Settings_Manager.new()
 @onready var icons = Icons.new()
-var dir = DirAccess.open(OS.get_user_data_dir())
+var dir : DirAccess = DirAccess.open(OS.get_user_data_dir())
 var cur_opened_file = ""
 var cur_ind = 0
 var cur_ind_focus = 0
 var font_size = 16
 var from_idx = -1
-var save_file_path = "user://Preferance Data/save_data.cfg"
 var intro_wind_popup : bool = true
 var open_last_project_on_startup : bool = true
 @onready var map : Dictionary = {
@@ -76,6 +75,7 @@ func on_load_emit_pref():
 	reload_timer.wait_time = SettingManager.timer_map.reload_timer_delay
 	open_last_project_on_startup = SettingManager.editor_setting_map.open_last_project_on_startup
 	intro_wind_popup = SettingManager.editor_setting_map.show_intro_wind
+	dir = DirAccess.open(SettingManager.preference_setting_map.LastOpenPath)
 	var theme_ = SettingManager.preference_setting_map.theme
 	if !Lua_theme_dir.file_exists("%s.lua" % theme_): theme_ = files[0].get_basename()
 	load_tabs(SettingManager.preference_setting_map.open_tabs)
@@ -129,7 +129,10 @@ func open_from_file_explorer():
 	var selected_name = item_list.get_item_text(cur_ind)
 	if not selected_name == "..": selected_name = selected_name.erase(0, 2)
 	var full_path = dir.get_current_dir().path_join(selected_name)
+	var found_index = tab_path_arr.find(full_path)
+	if found_index != -1: tab_bar.current_tab = found_index
 	open_file_dir(full_path, selected_name)
+	SettingManager.preference_setting_map.LastOpenPath = dir.get_current_dir();
 
 func _input(_event: InputEvent) -> void:
 	if Input.is_action_just_pressed("Change Focus"):
