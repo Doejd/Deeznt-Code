@@ -111,12 +111,6 @@ int64_t WindowsHost::getRelativeCaretIndex() const {
     return idx;
 }
 
-void WindowsHost::bulkRemove(const int32_t &to_line) {
-    if (to_line <= 0) return;
-    const int32_t count = std::min(to_line, static_cast<int32_t>(segments.size()));
-    segments.erase(segments.begin(), segments.begin() + count);
-}
-
 int WindowsHost::ansiToColor(const int &code) {
     switch (code) {
         case 0: return 0x000000;     // black
@@ -246,11 +240,10 @@ void WindowsHost::applyArgs(Segment &seg, const godot::String &args){
     }
 }
 
-void WindowsHost::pushToSegments(const int32_t &line, godot::String &frame_text) {
+void WindowsHost::pushToSegments(godot::String &frame_text) {
     if (current.text.is_empty()) return;
-    if (segments.size() <= line) segments.resize(line + 1);
-    segments[line].push_back(current);
     frame_text += current.text;
+    segments.pushSegment(current);
     current.starting_column += static_cast<int32_t>(current.text.length());
     current.text = "";
 }
@@ -259,19 +252,18 @@ void WindowsHost::getHighlighting(godot::String &ansi_string, godot::String &fra
     ansi_string = ansi_string.replace("\r\n", "\n");
     godot::String cur_args;
     ParseState parse_state = ParseState::Normal;
-    int32_t line{get_line_count() - 1};
     for (int i{0}; i < ansi_string.length(); i++) {
         const auto ch = ansi_string[i];
         if (parse_state == ParseState::Normal) {
             if (ch == '\x1b') {
-                pushToSegments(line, frame_text);
+                pushToSegments(frame_text);
                 parse_state = ParseState::Escape;
                 continue;
             }
-            if (ch == '\n') {
-                pushToSegments(line, frame_text);
+            if (ch == '\n' || current.starting_column + current.text.length() >= MAX_COLS) {
+                pushToSegments(frame_text);
                 frame_text += '\n';
-                line++;
+                segments.initNewLine();
                 current.starting_column = 0;
                 continue;
             }
@@ -288,7 +280,7 @@ void WindowsHost::getHighlighting(godot::String &ansi_string, godot::String &fra
             else if (ch != '\n') cur_args += ch;
         }
     }
-    pushToSegments(line, frame_text);
+    pushToSegments(frame_text);
 }
 
 void WindowsHost::_bind_methods(){
@@ -391,20 +383,20 @@ void WindowsHost::writeToTerminal(const godot::String &text){
     if (!success) godot::UtilityFunctions::printerr("WriteFile() -> Failed");
 }
 
-void WindowsHost::readFromTerminal(){
-    if (parent_stdout_read == NULL) return;
+godot::String WindowsHost::readFromTerminal(){
+    if (parent_stdout_read == NULL) return "";
     DWORD bytes_available = 0;
-    if (!PeekNamedPipe(parent_stdout_read, NULL, 0, NULL, &bytes_available, NULL)) return;
-    if (bytes_available == 0) return;
+    if (!PeekNamedPipe(parent_stdout_read, NULL, 0, NULL, &bytes_available, NULL)) return "";
+    if (bytes_available == 0) return "";
 
     DWORD read = 0;
 
     BOOL success = ReadFile(parent_stdout_read, buf, sizeof(buf) - 1, &read, NULL);
-    if (!success || read == 0) return;
+    if (!success || read == 0) return "";
 
     buf[read] = '\0';
 
-    leftoverRead += godot::String::utf8(buf);
+    return godot::String::utf8(buf);
 }
 
 
@@ -437,7 +429,7 @@ void WindowsHost::_exit_tree(){
 
 void WindowsHost::_gui_input(const godot::Ref<godot::InputEvent> &event) {
     const godot::Ref<godot::InputEventKey> key_event = event;
-    if (event->is_class("InputEventMouseButton") || event->is_class("InputEventMouseMotion")) clampCaret();
+    if (event->is_class("InputEventMouseButton")) clampCaret();
     if (!key_event.is_valid() || !key_event->is_pressed()) return;
     if (!has_focus()) return;
     const int keycode = key_event->get_keycode();
@@ -502,26 +494,26 @@ void WindowsHost::_gui_input(const godot::Ref<godot::InputEvent> &event) {
 void WindowsHost::_process(double p_delta) {
     if (godot::Engine::get_singleton()->is_editor_hint()) return;
 
-    readFromTerminal();
+    auto res = readFromTerminal();
 
     godot::String frame_text{""};
 
-    getHighlighting(leftoverRead, frame_text);
-
-    leftoverRead = "";
+    getHighlighting(res, frame_text);
 
     if (frame_text.is_empty()) return;
 
-    if (const int excess = get_line_count() - TOTAL_MAX_LINES; excess > 0) {
+    set_caret_line(get_line_count() - 1);
+    set_caret_column(static_cast<int32_t>(get_line(get_line_count() - 1).length()));
+    insert_text_at_caret(frame_text);
+
+    if (const int excess = get_line_count() - static_cast<int>(segments.capacity()); excess > 0) {
         remove_text(0, 0, excess, static_cast<int32_t>(get_line(excess).length()));
-        bulkRemove(excess);
         highlighter->clear_highlighting_cache();
         center_viewport_to_caret();
     }
 
     set_caret_line(get_line_count() - 1);
     set_caret_column(static_cast<int32_t>(get_line(get_line_count() - 1).length()));
-    insert_text_at_caret(frame_text);
     input_start_line_col = {get_line_count() - 1, static_cast<int32_t>(get_line(get_line_count() - 1).length())};
     queue_redraw();
 }
@@ -554,4 +546,4 @@ void  WindowsHost::_draw() {
     }
 }
 
-std::deque<std::vector<Segment>> WindowsHost::getSegments() const {return segments;}
+LineRingBuffer WindowsHost::getSegments() const {return segments;}
