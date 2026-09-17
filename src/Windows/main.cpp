@@ -22,18 +22,13 @@ godot::Dictionary AnsiHighlighter::_get_line_syntax_highlighting(const int line)
     if (!host) return res;
 
     const auto segments_per_line = host->getSegments();
-    if (segments_per_line.empty()) return res;
 
-    if (line < 0 || line >= segments_per_line.size()) return res;
-
+    if (line < 0) return res;
     for (const auto &seg : segments_per_line[line]) {
-        const int start_col = seg.starting_column;
-        const int end_col = start_col + static_cast<int32_t>(seg.text.length());
-
         godot::Dictionary style;
         style["color"] = godot::Color::hex(seg.color << 8 | 0xFF);
 
-        for (int col = start_col; col < end_col; ++col) res[static_cast<godot::Variant>(col)] = style;
+        res[static_cast<godot::Variant>(seg.starting_column)] = style;
     }
 
     return res;
