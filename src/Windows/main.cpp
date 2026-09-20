@@ -297,6 +297,7 @@ void WindowsHost::_notification(int p_what) {
 }
 
 void WindowsHost::startTerminal(){
+    if (running) return;
     if(!CreatePipe(&child_stdin_read, &parent_stdin_write, &sa, 0) ||
        !CreatePipe(&parent_stdout_read, &child_stdout_write, &sa, 0)){
         return;
@@ -336,10 +337,13 @@ void WindowsHost::startTerminal(){
     CloseHandle(child_stdin_read);
     CloseHandle(child_stdout_write);
 
+    running = true;
+
     loadHistory(500);
 }
 
 void WindowsHost::endTerminal(){
+    if (!running) return;
     running = false;
     ClosePseudoConsole(hPC);
     CloseHandle(pi.hThread);
@@ -364,6 +368,7 @@ void WindowsHost::writeToTerminal(const godot::String &text){
         endTerminal();
         clear();
         segments.clear();
+        return;
     }
 
     DWORD written = 0;
@@ -379,7 +384,7 @@ void WindowsHost::writeToTerminal(const godot::String &text){
 }
 
 godot::String WindowsHost::readFromTerminal(){
-    if (parent_stdout_read == NULL) return "";
+    if (parent_stdout_read == NULL || !running) return "";
     DWORD bytes_available = 0;
     if (!PeekNamedPipe(parent_stdout_read, NULL, 0, NULL, &bytes_available, NULL)) return "";
     if (bytes_available == 0) return "";
