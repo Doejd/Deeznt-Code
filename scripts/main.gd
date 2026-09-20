@@ -63,6 +63,10 @@ func _ready() -> void:
 	item_list.select(cur_ind)
 	get_tree().root.focus_entered.connect(update_file_tree)
 	get_tree().root.close_requested.connect(SettingManager.save_settings)
+	
+func _exit_tree() -> void:
+	icons.free()
+	SettingManager.free()
 
 func on_load_emit_pref():
 	var Lua_theme_dir : DirAccess = DirAccess.open("user://Lua/themes")
