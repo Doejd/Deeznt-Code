@@ -1,12 +1,12 @@
 #ifndef LINUXHOST_H
 #define LINUXHOST_H
 
+#include <vector>
 #include <godot_cpp/classes/text_edit.hpp>
 #include <godot_cpp/classes/syntax_highlighter.hpp>
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/classes/font.hpp>
 #include <sys/types.h>
-#include "../RingBuffer/main.h"
 
 enum class ParseState {
     Normal,
@@ -15,10 +15,10 @@ enum class ParseState {
 };
 
 struct Segment {
-    godot::String text{""};
     uint32_t color{0xffffff};
     uint32_t bg_color{0x000000};
     int32_t starting_column{0};
+    uint32_t length{0};
     bool hasBg{false};
     bool bold{false};
 };
@@ -109,28 +109,28 @@ class LinuxHost : public godot::TextEdit {
 
     godot::Vector2i input_start_line_col{0, 0};
 
-    uint8_t TOTAL_MAX_COLS{120};
+    static constexpr uint8_t TOTAL_MAX_COLS{120};
 
-    char buffer[32768]; // 32KB read buffer(for read()), in order not to spike frame rate
+    char buffer[32768]; // 32KB read buffer(for read()), in order not to spike the frame rate
 
     godot::Ref<AnsiHighlighter> highlighter;
 
     LineRingBuffer segments{22560};
 
     static bool fileExists(const char *path);
-    void loadHistory(const uint32_t &max_lines);
+    void loadHistory(uint32_t max_lines);
 
     bool clampCaret();
     [[nodiscard]] int64_t getRelativeCaretIndex() const;
 
-    static int ansiToColor(const int &code);
-    static int ansi256ToColor(const int &code);
+    static int ansiToColor(int code);
+    static int ansi256ToColor(int code);
 
     static void applyStyle(int code, Segment &seg);
 
     static void applyArgs(Segment &seg, const godot::String &args);
 
-    void pushToSegments(godot::String &frame_text);
+    void pushToSegments(godot::String &frame_text, godot::String &cur_text);
     void getHighlighting(const godot::String &ansi_string, godot::String &frame_text);
 
 protected:

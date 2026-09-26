@@ -46,7 +46,7 @@ bool LinuxHost::fileExists(const char *path) {
     return path && stat(path, &st) == 0 && S_ISREG(st.st_mode);
 }
 
-void LinuxHost::loadHistory(const uint32_t &max_lines) {
+void LinuxHost::loadHistory(uint32_t max_lines) {
     const char* hist_path = getenv("HISTFILE");
     godot::String path;
     if (!hist_path) {
@@ -65,7 +65,7 @@ void LinuxHost::loadHistory(const uint32_t &max_lines) {
 
     uint64_t pos{file_size};
     int newline_count{0};
-    godot::String buffer;
+    godot::String fileTextBuffer;
 
     while (pos > 0 && newline_count <= max_lines) {
         constexpr uint64_t chunk_size{4096};
@@ -76,13 +76,13 @@ void LinuxHost::loadHistory(const uint32_t &max_lines) {
         godot::PackedByteArray bytes = file->get_buffer(static_cast<int64_t>(read_size));
         godot::String chunk = bytes.get_string_from_utf8();
 
-        buffer = chunk + buffer;
+        fileTextBuffer = chunk + fileTextBuffer;
         newline_count += static_cast<int>(chunk.count("\n"));
     }
 
     file->close();
 
-    godot::PackedStringArray lines = buffer.split("\n", false);
+    godot::PackedStringArray lines = fileTextBuffer.split("\n", false);
     if (lines.size() > max_lines) lines = lines.slice(lines.size() - max_lines, lines.size());
 
     history = lines;
@@ -117,7 +117,7 @@ int64_t LinuxHost::getRelativeCaretIndex() const {
     return idx;
 }
 
-int LinuxHost::ansiToColor(const int &code) {
+int LinuxHost::ansiToColor(int code) {
     switch (code) {
         case 0: return 0x000000;     // black
         case 1: return 0xff0000;     // red
@@ -138,7 +138,7 @@ int LinuxHost::ansiToColor(const int &code) {
     }
 }
 
-int LinuxHost::ansi256ToColor(const int &code){
+int LinuxHost::ansi256ToColor(int code){
     if (code < 16) return ansiToColor(code);
     if (code <= 231) {
         const int idx = code - 16;
@@ -213,16 +213,18 @@ void LinuxHost::applyArgs(Segment &seg, const godot::String &args) {
     }
 }
 
-void LinuxHost::pushToSegments(godot::String &frame_text) {
-    if (current.text.is_empty()) return;
-    frame_text += current.text;
+void LinuxHost::pushToSegments(godot::String &frame_text, godot::String &cur_text) {
+    if (cur_text.is_empty()) return;
+    frame_text += cur_text;
+    current.length = cur_text.length();
     segments.pushSegment(current);
-    current.starting_column += static_cast<int32_t>(current.text.length());
-    current.text = "";
+    current.starting_column += static_cast<int32_t>(current.length);
+    cur_text = "";
 }
 
 void LinuxHost::getHighlighting(const godot::String &ansi_string, godot::String &frame_text) {
     godot::String cur_args;
+    godot::String cur_text;
     auto parse_state = ParseState::Normal;
     for (int i{0}; i < ansi_string.length(); i++) {
         const auto ch = ansi_string[i];
@@ -231,18 +233,18 @@ void LinuxHost::getHighlighting(const godot::String &ansi_string, godot::String 
 
         if (parse_state == ParseState::Normal) {
             if (ch == '\e') {
-                pushToSegments(frame_text);
+                pushToSegments(frame_text, cur_text);
                 parse_state = ParseState::Escape;
                 continue;
             }
-            if (ch == '\n' || current.starting_column + current.text.length() >= TOTAL_MAX_COLS) {
-                pushToSegments(frame_text);
+            if (ch == '\n' || current.starting_column + cur_text.length() >= TOTAL_MAX_COLS) {
+                pushToSegments(frame_text, cur_text);
                 frame_text += '\n';
                 segments.initNewLine();
                 current.starting_column = 0;
                 if (ch == '\n') continue;
             }
-            current.text += ch;
+            cur_text += ch;
         }
         else if (parse_state == ParseState::Escape) {
             if (ch == '[') {parse_state = ParseState::CSI; cur_args = "";}
@@ -250,12 +252,23 @@ void LinuxHost::getHighlighting(const godot::String &ansi_string, godot::String 
         }
         else {
             if (ch == 'm') {applyArgs(current, cur_args); parse_state = ParseState::Normal;}
-            else if (ch == 'J') {parse_state = ParseState::Normal; segments.clear(); clear();}
+            else if (ch == 'J') {
+                const int code = cur_args.is_empty() ? 0 : static_cast<int>(cur_args.to_int());
+                if (code == 2 || code == 3) {
+                    frame_text = "";
+                    cur_text = "";
+                    segments.clear();
+                    clear();
+                    current.starting_column = 0;
+                }
+
+                parse_state = ParseState::Normal;
+            }
             else if (ch >= '@' && ch <= '~') parse_state = ParseState::Normal;
             else if (ch != '\n') cur_args += ch;
         }
     }
-    pushToSegments(frame_text);
+    pushToSegments(frame_text, cur_text);
 }
 
 void LinuxHost::_bind_methods(){
@@ -328,15 +341,11 @@ void LinuxHost::endTerminal(){
 void LinuxHost::writeToTerminal(const godot::String &text) {
     const std::string native = text.utf8().get_data();
 
-    if (native == "clear\n") {
-        clear();
-        segments.clear();
-    }
-
     if (native == "exit\n") {
         endTerminal();
-        clear();
         segments.clear();
+        clear();
+        return;
     }
 
     if (master_fd != -1) {
@@ -412,7 +421,10 @@ void LinuxHost::_gui_input(const godot::Ref<godot::InputEvent> &event) {
         return;
     }
     if (keycode == godot::KEY_ENTER) {
-        if (!input.strip_edges().is_empty()) history.push_back(input); history_index = static_cast<int32_t>(history.size());
+        if (!input.strip_edges().is_empty()) {
+            history.push_back(input);
+            history_index = static_cast<int32_t>(history.size());
+        }
         remove_text(input_start_line_col.x, input_start_line_col.y, get_line_count() - 1, static_cast<int32_t>(get_line(get_line_count() - 1).length()));
         writeToTerminal(input + "\n");
         input = "";
@@ -503,7 +515,7 @@ void LinuxHost::_draw() {
             if (!seg.hasBg) continue;
             const int char_column = godot::Math::max(0 , seg.starting_column);
             const godot::Rect2i rect = get_rect_at_line_column(line, char_column + 1); // EDIT: seg.starting_colum is 0-indexed, but char columns are 1-indexed in godot
-            const godot::Rect2i drawRect{rect.position, godot::Size2i{static_cast<int>(cell_width * (seg.text.length() + 1)), rect.size.height}};
+            const godot::Rect2i drawRect{rect.position, godot::Size2i{static_cast<int>(cell_width * (seg.length + 1)), rect.size.height}};
             draw_rect(drawRect, godot::Color::hex(seg.bg_color << 8 | 0xFF));
         }
     }
