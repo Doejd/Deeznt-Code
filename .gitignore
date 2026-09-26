@@ -5,6 +5,8 @@
 /console-extension/
 /Console Extension src/
 /godot-cpp/
+/.idea/
+/bin/
 Deezn't Code.*
 rcedit-x64.exe
 *.dll
@@ -13,6 +15,8 @@ rcedit-x64.exe
 *.exp
 *.lib
 *.import
+*.os
+*.uid
 main.exe
 main.obj
 export_presets.cfg
