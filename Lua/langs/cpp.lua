@@ -176,7 +176,7 @@ function detect_variables(content)
 
     for line in content:gmatch("[^\r\n]+") do
         if not line:find("%b()") then
-            local name = line:match("^%s*[%w_:<>*&]+%s+([%w_:]+)%s*[=;]")
+            local name = line:match("^[ \t]*[%w_:<>,*&%[%] \t]-[ \t]+([%a_][%w_]*)[ \t]*[=;{]")
             if name then
                 table.insert(variable_names, name)
             end
