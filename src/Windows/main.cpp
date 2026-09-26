@@ -40,7 +40,7 @@ bool WindowsHost::fileExists(const char *path) {
     return (attr != INVALID_FILE_ATTRIBUTES && !(attr & FILE_ATTRIBUTE_DIRECTORY));
 }
 
-void WindowsHost::loadHistory(const uint32_t &max_lines) {
+void WindowsHost::loadHistory(uint32_t max_lines) {
     const char* home_path = std::getenv("APPDATA");
     if (!home_path) {godot::UtilityFunctions::printerr("Appdata env variable not configured/history will be local only"); return;}
     godot::String path = godot::String(home_path) + "/Microsoft/Windows/PowerShell/PSReadLine/ConsoleHost_history.txt";
@@ -106,7 +106,7 @@ int64_t WindowsHost::getRelativeCaretIndex() const {
     return idx;
 }
 
-int WindowsHost::ansiToColor(const int &code) {
+int WindowsHost::ansiToColor(int code) {
     switch (code) {
         case 0: return 0x000000;     // black
         case 1: return 0xff0000;     // red
@@ -127,7 +127,7 @@ int WindowsHost::ansiToColor(const int &code) {
     }
 }
 
-int WindowsHost::ansi256ToColor(const int &code){
+int WindowsHost::ansi256ToColor(int code){
     if (code < 16) return ansiToColor(code);
     if (code <= 231){
         const int idx = code - 16;
@@ -235,34 +235,36 @@ void WindowsHost::applyArgs(Segment &seg, const godot::String &args){
     }
 }
 
-void WindowsHost::pushToSegments(godot::String &frame_text) {
-    if (current.text.is_empty()) return;
-    frame_text += current.text;
+void WindowsHost::pushToSegments(godot::String &frame_text, godot::String &cur_text) {
+    if (cur_text.is_empty()) return;
+    frame_text += cur_text;
+    current.length = cur_text.length();
     segments.pushSegment(current);
-    current.starting_column += static_cast<int32_t>(current.text.length());
-    current.text = "";
+    current.starting_column += static_cast<int32_t>(current.length);
+    cur_text = "";
 }
 
 void WindowsHost::getHighlighting(godot::String &ansi_string, godot::String &frame_text){
     ansi_string = ansi_string.replace("\r\n", "\n");
     godot::String cur_args;
+    godot::String cur_text;
     ParseState parse_state = ParseState::Normal;
     for (int i{0}; i < ansi_string.length(); i++) {
         const auto ch = ansi_string[i];
         if (parse_state == ParseState::Normal) {
             if (ch == '\x1b') {
-                pushToSegments(frame_text);
+                pushToSegments(frame_text, cur_text);
                 parse_state = ParseState::Escape;
                 continue;
             }
-            if (ch == '\n' || current.starting_column + current.text.length() >= MAX_COLS) {
-                pushToSegments(frame_text);
+            if (ch == '\n' || current.starting_column + cur_text.length() >= MAX_COLS) {
+                pushToSegments(frame_text, cur_text);
                 frame_text += '\n';
                 segments.initNewLine();
                 current.starting_column = 0;
                 continue;
             }
-            current.text += ch;
+            cur_text += ch;
         }
         else if (parse_state == ParseState::Escape) {
             if (ch == '[') {parse_state = ParseState::CSI; cur_args = "";}
@@ -270,12 +272,27 @@ void WindowsHost::getHighlighting(godot::String &ansi_string, godot::String &fra
         }
         else {
             if (ch == 'm') {applyArgs(current, cur_args); parse_state = ParseState::Normal;}
-            else if (ch == 'J') {parse_state = ParseState::Normal; segments.clear(); clear();}
+            else if (ch == 'J') {
+                const int code = cur_args.is_empty() ? 0 : static_cast<int>(cur_args.to_int());
+                if (code == 2 || code == 3) {
+                    frame_text = "";
+                    cur_text = "";
+                    segments.clear();
+                    clear();
+                    current.starting_column = 0;
+                }
+                parse_state = ParseState::Normal;
+            }
+            else if (ch == 'K') {
+                const int code = cur_args.is_empty() ? 0 : static_cast<int>(cur_args.to_int());
+                if (code == 0 || code == 2) cur_text = "";
+                parse_state = ParseState::Normal;
+            }
             else if (ch >= '@' && ch <= '~') parse_state = ParseState::Normal;
             else if (ch != '\n') cur_args += ch;
         }
     }
-    pushToSegments(frame_text);
+    pushToSegments(frame_text, cur_text);
 }
 
 void WindowsHost::_bind_methods(){
@@ -359,15 +376,11 @@ void WindowsHost::writeToTerminal(const godot::String &text){
     const godot::String full_input = text + godot::String::chr('\r');
     const std::string utf8_input = full_input.utf8().get_data();
 
-    if (text.to_lower() == "cls" || text.to_lower() == "clear") {
-        clear();
-        segments.clear();
-    }
 
     if (text.to_lower() == "exit") {
         endTerminal();
-        clear();
         segments.clear();
+        clear();
         return;
     }
 
@@ -447,7 +460,10 @@ void WindowsHost::_gui_input(const godot::Ref<godot::InputEvent> &event) {
         return;
     }
     if (keycode == godot::KEY_ENTER) {
-        if (!input.strip_edges().is_empty()) history.push_back(input); history_index = static_cast<int32_t>(history.size());
+        if (!input.strip_edges().is_empty()) {
+            history.push_back(input);
+            history_index = static_cast<int32_t>(history.size());
+        }
         remove_text(input_start_line_col.x, input_start_line_col.y, get_line_count() - 1, static_cast<int32_t>(get_line(get_line_count() - 1).length()));
         writeToTerminal(input);
         input = "";
@@ -539,8 +555,8 @@ void  WindowsHost::_draw() {
         for (const auto &seg : segments[line]) {
             if (!seg.hasBg) continue;
             const int char_column = godot::Math::max(0 , seg.starting_column);
-            const godot::Rect2i rect = get_rect_at_line_column(line, char_column + 1); // get_rect_at_line_column(line, char_column) returns the rect of the previous char because that makes sense
-            const godot::Rect2i drawRect{rect.position, godot::Size2i{static_cast<int>(cell_width * (seg.text.length() + 1)), rect.size.height}};
+            const godot::Rect2i rect = get_rect_at_line_column(line, char_column + 1); // EDIT: columns in get_rect_at_line_column() are 1-indexed however I store them as 0-indexed
+            const godot::Rect2i drawRect{rect.position, godot::Size2i{static_cast<int>(cell_width * (seg.length + 1)), rect.size.height}};
             draw_rect(drawRect, godot::Color::hex(seg.bg_color << 8 | 0xFF));
         }
     }
