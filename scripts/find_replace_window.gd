@@ -12,14 +12,21 @@ var cur_selected_match = 0
 func _ready() -> void:
 	hide()
 	connect("close_requested", hide)
+	
+func find_all_occurances(line_index: int, text_to_find: String, text_to_search: String):
+	var start_idx: int = 0
+	while (start_idx + text_to_find.length() - 1 < text_to_search.length()):
+		if (text_to_search.substr(start_idx, text_to_find.length()) == text_to_find):
+			all_matches.append(Vector3i(line_index, start_idx, text_to_find.length()))
+		start_idx += 1
+			
 
 func _on_line_edit_text_submitted(new_text: String) -> void:
 	all_matches.clear()
 	cur_selected_match = 0
 	var lines = editor.get_text().split("\n", true)
 	for line_ind in lines.size():
-		var col = lines[line_ind].find(new_text)
-		if col != -1: all_matches.append(Vector3i(line_ind, col, new_text.length()))
+		find_all_occurances(line_ind, new_text, lines[line_ind])
 	if all_matches.is_empty(): return
 	editor.grab_focus()
 	editor.set_caret_line(all_matches[cur_selected_match].x)
