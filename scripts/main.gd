@@ -80,6 +80,7 @@ func on_load_emit_pref():
 	open_last_project_on_startup = SettingManager.editor_setting_map.open_last_project_on_startup
 	intro_wind_popup = SettingManager.editor_setting_map.show_intro_wind
 	dir = DirAccess.open(SettingManager.preference_setting_map.LastOpenPath)
+	editor.set_draw_fold_gutter(SettingManager.editor_setting_map.gutters_draw_fold_gutter)
 	var theme_ = SettingManager.preference_setting_map.theme
 	if !Lua_theme_dir.file_exists("%s.lua" % theme_): theme_ = files[0].get_basename()
 	load_tabs(SettingManager.preference_setting_map.open_tabs)

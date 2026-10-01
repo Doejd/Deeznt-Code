@@ -17,7 +17,7 @@ var default_editor_setting_map : Dictionary = {
 	"highlight_current_line" : true,
 	"minimap_draw" : false,
 	"show_intro_wind" : true,
-	"gutters_draw_breakpoints_gutter" : false
+	"gutters_draw_fold_gutter" : false
 }
 var default_timer_map : Dictionary = {
 	"save_timer_delay" : 4,

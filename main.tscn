@@ -4,7 +4,9 @@
 [ext_resource type="Script" uid="uid://bctpagkgq0qgi" path="res://scripts/edit.gd" id="2_0xm2m"]
 [ext_resource type="Script" uid="uid://dsf42r8isrgph" path="res://scripts/theme_select.gd" id="2_272bh"]
 [ext_resource type="FontFile" uid="uid://cbkrfirh0p48" path="res://Font/FiraCodeNerdFont-Regular.ttf" id="2_h2yge"]
+[ext_resource type="Texture2D" uid="uid://b0od7fox2dy0i" path="res://Editor Icons/can fold.svg" id="4_yaehf"]
 [ext_resource type="FontFile" uid="uid://cfoksy326afx" path="res://Font/Inconsolata-Regular.ttf" id="5_7mycd"]
+[ext_resource type="Texture2D" uid="uid://bf8sie61mdle8" path="res://Editor Icons/folded.svg" id="5_074og"]
 [ext_resource type="Script" uid="uid://cads53hj1d2w1" path="res://scripts/intro_window.gd" id="6_7mycd"]
 [ext_resource type="Script" uid="uid://nkw8h3awv1jx" path="res://scripts/never_show_again_button.gd" id="7_272bh"]
 [ext_resource type="Script" uid="uid://kiqlhdva7ov2" path="res://scripts/find_replace_window.gd" id="8_5vw27"]
@@ -83,12 +85,16 @@ size_flags_horizontal = 3
 size_flags_vertical = 3
 theme_override_fonts/font = ExtResource("5_7mycd")
 theme_override_font_sizes/font_size = 16
+theme_override_icons/can_fold = ExtResource("4_yaehf")
+theme_override_icons/folded = ExtResource("5_074og")
 emoji_menu_enabled = false
 deselect_on_focus_loss_enabled = false
 empty_selection_clipboard_enabled = false
 minimap_draw = true
 caret_blink = true
+highlight_all_occurrences = true
 highlight_current_line = true
+line_folding = true
 gutters_draw_line_numbers = true
 code_completion_enabled = true
 indent_automatic = true
@@ -573,11 +579,11 @@ text = "Enable Minimap"
 script = ExtResource("10_ycdy4")
 modifies_property = "minimap_draw"
 
-[node name="DrawBreakpointsGutter?" type="CheckBox" parent="Settings Window/HBoxContainer/Settings/Editor Settings" unique_id=1367865108]
+[node name="DrawFoldGutter" type="CheckBox" parent="Settings Window/HBoxContainer/Settings/Editor Settings" unique_id=1367865108]
 layout_mode = 2
-text = "Draw Breakpoints Gutter"
+text = "Draw Fold Gutter"
 script = ExtResource("10_ycdy4")
-modifies_property = "gutters_draw_breakpoints_gutter"
+modifies_property = "gutters_draw_fold_gutter"
 
 [node name="Theme Settings" type="VBoxContainer" parent="Settings Window/HBoxContainer/Settings" unique_id=1774776293]
 visible = false
