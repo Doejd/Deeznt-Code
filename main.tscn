@@ -653,19 +653,33 @@ size_flags_horizontal = 3
 script = ExtResource("11_efxa6")
 key_referring_to = "string"
 
-[node name="SpecialCharColorSettings" type="HBoxContainer" parent="Settings Window/HBoxContainer/Settings/Theme Settings" unique_id=29181960]
+[node name="SpecialCharColor" type="HBoxContainer" parent="Settings Window/HBoxContainer/Settings/Theme Settings" unique_id=1864644636]
 layout_mode = 2
 
-[node name="Label2" type="Label" parent="Settings Window/HBoxContainer/Settings/Theme Settings/SpecialCharColorSettings" unique_id=1436949602]
+[node name="Label2" type="Label" parent="Settings Window/HBoxContainer/Settings/Theme Settings/SpecialCharColor" unique_id=323892032]
 layout_mode = 2
 size_flags_horizontal = 3
-text = "Special Character Color"
+text = "Symbol color"
 
-[node name="ColorPickerButton" type="ColorPickerButton" parent="Settings Window/HBoxContainer/Settings/Theme Settings/SpecialCharColorSettings" unique_id=1994158371]
+[node name="ColorPickerButton" type="ColorPickerButton" parent="Settings Window/HBoxContainer/Settings/Theme Settings/SpecialCharColor" unique_id=2053526887]
 layout_mode = 2
 size_flags_horizontal = 3
 script = ExtResource("11_efxa6")
-key_referring_to = "binary"
+key_referring_to = "symbol"
+
+[node name="Number Color" type="HBoxContainer" parent="Settings Window/HBoxContainer/Settings/Theme Settings" unique_id=29181960]
+layout_mode = 2
+
+[node name="Label2" type="Label" parent="Settings Window/HBoxContainer/Settings/Theme Settings/Number Color" unique_id=1436949602]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Number Color"
+
+[node name="ColorPickerButton" type="ColorPickerButton" parent="Settings Window/HBoxContainer/Settings/Theme Settings/Number Color" unique_id=1994158371]
+layout_mode = 2
+size_flags_horizontal = 3
+script = ExtResource("11_efxa6")
+key_referring_to = "number"
 
 [node name="VariableColorSettings" type="HBoxContainer" parent="Settings Window/HBoxContainer/Settings/Theme Settings" unique_id=123441907]
 layout_mode = 2
@@ -680,20 +694,6 @@ layout_mode = 2
 size_flags_horizontal = 3
 script = ExtResource("11_efxa6")
 key_referring_to = "variable"
-
-[node name="OperatorColorSettings" type="HBoxContainer" parent="Settings Window/HBoxContainer/Settings/Theme Settings" unique_id=754264766]
-layout_mode = 2
-
-[node name="Label2" type="Label" parent="Settings Window/HBoxContainer/Settings/Theme Settings/OperatorColorSettings" unique_id=2134147119]
-layout_mode = 2
-size_flags_horizontal = 3
-text = "Operator Color"
-
-[node name="ColorPickerButton" type="ColorPickerButton" parent="Settings Window/HBoxContainer/Settings/Theme Settings/OperatorColorSettings" unique_id=2118333149]
-layout_mode = 2
-size_flags_horizontal = 3
-script = ExtResource("11_efxa6")
-key_referring_to = "operator"
 
 [node name="CommentsColorSettings" type="HBoxContainer" parent="Settings Window/HBoxContainer/Settings/Theme Settings" unique_id=1602426436]
 layout_mode = 2
@@ -941,9 +941,8 @@ size_flags_vertical = 3
 [connection signal="on_theme_change" from="Settings Window/HBoxContainer/Settings/Theme Settings/ThemeSetting/OptionButton2" to="Editor_Container/VSplitContainer/VSplitContainer/Editor" method="_on_option_button_on_theme_change"]
 [connection signal="on_theme_change" from="Settings Window/HBoxContainer/Settings/Theme Settings/ThemeSetting/OptionButton2" to="Settings Window/HBoxContainer/Settings/Theme Settings/KeywordColorSettings/ColorPickerButton" method="_on_theme_change"]
 [connection signal="on_theme_change" from="Settings Window/HBoxContainer/Settings/Theme Settings/ThemeSetting/OptionButton2" to="Settings Window/HBoxContainer/Settings/Theme Settings/StringColorSettings/ColorPickerButton" method="_on_theme_change"]
-[connection signal="on_theme_change" from="Settings Window/HBoxContainer/Settings/Theme Settings/ThemeSetting/OptionButton2" to="Settings Window/HBoxContainer/Settings/Theme Settings/SpecialCharColorSettings/ColorPickerButton" method="_on_theme_change"]
+[connection signal="on_theme_change" from="Settings Window/HBoxContainer/Settings/Theme Settings/ThemeSetting/OptionButton2" to="Settings Window/HBoxContainer/Settings/Theme Settings/Number Color/ColorPickerButton" method="_on_theme_change"]
 [connection signal="on_theme_change" from="Settings Window/HBoxContainer/Settings/Theme Settings/ThemeSetting/OptionButton2" to="Settings Window/HBoxContainer/Settings/Theme Settings/VariableColorSettings/ColorPickerButton" method="_on_theme_change"]
-[connection signal="on_theme_change" from="Settings Window/HBoxContainer/Settings/Theme Settings/ThemeSetting/OptionButton2" to="Settings Window/HBoxContainer/Settings/Theme Settings/OperatorColorSettings/ColorPickerButton" method="_on_theme_change"]
 [connection signal="on_theme_change" from="Settings Window/HBoxContainer/Settings/Theme Settings/ThemeSetting/OptionButton2" to="Settings Window/HBoxContainer/Settings/Theme Settings/CommentsColorSettings/ColorPickerButton" method="_on_theme_change"]
 [connection signal="on_theme_change" from="Settings Window/HBoxContainer/Settings/Theme Settings/ThemeSetting/OptionButton2" to="Settings Window/HBoxContainer/Settings/Theme Settings/ErrorColorSettings/ColorPickerButton" method="_on_theme_change"]
 [connection signal="on_theme_change" from="Settings Window/HBoxContainer/Settings/Theme Settings/ThemeSetting/OptionButton2" to="Settings Window/HBoxContainer/Settings/Theme Settings/FunctionColorSettings/ColorPickerButton" method="_on_theme_change"]
@@ -959,9 +958,9 @@ size_flags_vertical = 3
 [connection signal="on_theme_change" from="Settings Window/HBoxContainer/Settings/Theme Settings/ThemeSetting/OptionButton2" to="Settings Window/HBoxContainer/Settings/Theme Settings/CaretColorSettings/ColorPickerButton" method="_on_theme_change"]
 [connection signal="color_changed" from="Settings Window/HBoxContainer/Settings/Theme Settings/KeywordColorSettings/ColorPickerButton" to="Settings Window/HBoxContainer/Settings/Theme Settings/KeywordColorSettings/ColorPickerButton" method="_on_color_changed"]
 [connection signal="color_changed" from="Settings Window/HBoxContainer/Settings/Theme Settings/StringColorSettings/ColorPickerButton" to="Settings Window/HBoxContainer/Settings/Theme Settings/StringColorSettings/ColorPickerButton" method="_on_color_changed"]
-[connection signal="color_changed" from="Settings Window/HBoxContainer/Settings/Theme Settings/SpecialCharColorSettings/ColorPickerButton" to="Settings Window/HBoxContainer/Settings/Theme Settings/SpecialCharColorSettings/ColorPickerButton" method="_on_color_changed"]
+[connection signal="color_changed" from="Settings Window/HBoxContainer/Settings/Theme Settings/SpecialCharColor/ColorPickerButton" to="Settings Window/HBoxContainer/Settings/Theme Settings/SpecialCharColor/ColorPickerButton" method="_on_color_changed"]
+[connection signal="color_changed" from="Settings Window/HBoxContainer/Settings/Theme Settings/Number Color/ColorPickerButton" to="Settings Window/HBoxContainer/Settings/Theme Settings/Number Color/ColorPickerButton" method="_on_color_changed"]
 [connection signal="color_changed" from="Settings Window/HBoxContainer/Settings/Theme Settings/VariableColorSettings/ColorPickerButton" to="Settings Window/HBoxContainer/Settings/Theme Settings/VariableColorSettings/ColorPickerButton" method="_on_color_changed"]
-[connection signal="color_changed" from="Settings Window/HBoxContainer/Settings/Theme Settings/OperatorColorSettings/ColorPickerButton" to="Settings Window/HBoxContainer/Settings/Theme Settings/OperatorColorSettings/ColorPickerButton" method="_on_color_changed"]
 [connection signal="color_changed" from="Settings Window/HBoxContainer/Settings/Theme Settings/CommentsColorSettings/ColorPickerButton" to="Settings Window/HBoxContainer/Settings/Theme Settings/CommentsColorSettings/ColorPickerButton" method="_on_color_changed"]
 [connection signal="color_changed" from="Settings Window/HBoxContainer/Settings/Theme Settings/ErrorColorSettings/ColorPickerButton" to="Settings Window/HBoxContainer/Settings/Theme Settings/ErrorColorSettings/ColorPickerButton" method="_on_color_changed"]
 [connection signal="color_changed" from="Settings Window/HBoxContainer/Settings/Theme Settings/FunctionColorSettings/ColorPickerButton" to="Settings Window/HBoxContainer/Settings/Theme Settings/FunctionColorSettings/ColorPickerButton" method="_on_color_changed"]

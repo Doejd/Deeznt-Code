@@ -12,10 +12,9 @@ var cur_theme_name = ""
 var keywords: Dictionary = {
 	"reserved":   str_to_clr("ff7ab2"),
 	"string":     str_to_clr("ecc48d"),
-	"binary":     str_to_clr("f78c6c"),
+	"number":     str_to_clr("f78c6c"),
 	"symbol":     str_to_clr("89ddff"),
 	"variable":   str_to_clr("fcbf6c"),
-	"operator":   str_to_clr("82aaff"),
 	"comments":   str_to_clr("5c6370"),
 	"error":      str_to_clr("ff5370"),
 	"function":   str_to_clr("82aaff"),
@@ -73,7 +72,7 @@ func set_up_extensions(extension : String):
 func setup_highlighter() -> void:
 	var CH: CodeHighlighter = CodeHighlighter.new()
 	syntax_highlighter = CH
-	CH.number_color = keywords.binary
+	CH.number_color = keywords.number
 	CH.symbol_color = keywords.symbol
 	CH.function_color = keywords.function
 	CH.member_variable_color = keywords.member

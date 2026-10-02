@@ -129,7 +129,7 @@ func open_file_dir(full_path : String, selected_name : String) -> void:
 			opened_file.emit(selected_name, full_path)
 		else:
 			return
-
+			
 func open_from_file_explorer():
 	var selected_name = item_list.get_item_text(cur_ind)
 	if not selected_name == "..": selected_name = selected_name.erase(0, 2)

@@ -22,38 +22,6 @@ highlight("None", "reserved")
 highlight("global", "reserved")
 highlight("local", "reserved")
 
---- Arithmetic Operators
-highlight("+", "operator")
-highlight("-", "operator")
-highlight("*", "operator")
-highlight("/", "operator")
-highlight("%", "operator")
-highlight("**", "operator")
-highlight("//", "operator")
-
---- Assignment Operators
-highlight("=", "operator")
-highlight("+=", "operator")
-highlight("!=", "operator")
-highlight("*=", "operator")
-highlight("/=", "operator")
-highlight("%=", "operator")
-highlight("//=", "operator")
-highlight("**=", "operator")
-highlight("&=", "operator")
-highlight("|=", "operator")
-highlight("^=", "operator")
-highlight(">>=", "operator")
-highlight("<<=", "operator")
-
---- Comparison Operators
-highlight("==", "operator")
-highlight("!=", "operator")
-highlight(">", "operator")
-highlight("<", "operator")
-highlight(">=", "operator")
-highlight("<=", "operator")
-
 --- Logical Operators
 highlight("and", "reserved")
 highlight("or", "reserved")
@@ -63,10 +31,16 @@ highlight("not", "reserved")
 highlight("in", "reserved")
 
 --- Special Characters
-highlight("{", "binary")
-highlight("}", "binary")
-highlight("[", "binary")
-highlight("]", "binary")
+highlight("(", "symbol")
+highlight("(", "symbol")
+highlight("{", "symbol")
+highlight("}", "symbol")
+highlight("[", "symbol")
+highlight("]", "symbol")
+
+
+-- Decorators
+highlight_region("@", "", "symbol", true)
 
 --- Strings
 highlight_region("'", "'", "string")

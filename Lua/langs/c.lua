@@ -44,58 +44,15 @@ highlight("_Noreturn", "reserved")
 highlight("_Static_assert", "reserved")
 highlight("_Thread_local", "reserved")
 
--- Arithmetic Operators
-highlight("+", "operator") 
-highlight("-", "operator")
-highlight("*", "operator")
-highlight("/", "operator")
-highlight("%", "operator")
-highlight("++", "operator")
-highlight("--", "operator")
-
--- Assignment Operators
-highlight("=", "operator")
-highlight("+=", "operator")
-highlight("-=", "operator") 
-highlight("*=", "operator")
-highlight("/=", "operator")
-highlight("%=", "operator")
-highlight("&=", "operator")
-highlight("^=", "operator")
-highlight("|=", "operator")
-highlight("<<=", "operator")
-highlight(">>=", "operator")
-
--- Comparison Operators
-highlight("==", "operator")
-highlight("!=", "operator")
-highlight(">", "operator")
-highlight("<", "operator")
-highlight(">=", "operator")
-highlight("<=", "operator")
-
--- Logical Operators 
-highlight("&&", "operator")
-highlight("||", "operator")
-highlight("!", "operator")
-
--- Bitwise Operators
-highlight("&", "operator")
-highlight("|", "operator")
-highlight("^", "operator")
-highlight("~", "operator")
-highlight("<<", "operator")
-highlight(">>", "operator")
-
 -- Special Characters
-highlight("{", "binary")
-highlight("}", "binary")
-highlight("[", "binary")
-highlight("]", "binary")
-highlight("(", "binary")
-highlight(")", "binary") 
-highlight(";", "binary")
-highlight(",", "binary")
+highlight("{", "symbol")
+highlight("}", "symbol")
+highlight("[", "symbol")
+highlight("]", "symbol")
+highlight("(", "symbol")
+highlight(")", "symbol") 
+highlight(";", "symbol")
+highlight(",", "symbol")
 
 -- Strings 
 highlight_region("\"", "\"", "string")

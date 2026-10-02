@@ -43,12 +43,6 @@ highlight("static", "reserved")
 highlight("transient", "reserved")
 highlight("volatile", "reserved")
 
-highlight_region("\"", "\"", "string")
-highlight_region("//", "", "comments", true)
-highlight_region("/*", "*/", "comments")
-
-highlight_region("@", "", "symbol", true)
-
 highlight("if", "reserved")
 highlight("else", "reserved")
 
@@ -68,9 +62,9 @@ highlight("finally", "reserved")
 highlight("throw", "reserved")
 highlight("throws", "reserved")
 
-highlight("false", "binary")
-highlight("true", "binary")
-highlight("null", "binary")
+highlight("false", "reserved")
+highlight("true", "reserved")
+highlight("null", "reserved")
 
 highlight("synchronized", "reserved")
 
@@ -93,53 +87,21 @@ highlight("when", "reserved")
 highlight("with", "reserved")
 highlight("yield", "reserved")
 
---- Arithmetic Operators
-highlight("+", "operator")
-highlight("-", "operator")
-highlight("*", "operator")
-highlight("/", "operator")
-highlight("%", "operator")
-highlight("++", "operator")
-highlight("--", "operator")
-
---- Assignment Operators
-highlight("=", "operator")
-highlight("+=", "operator")
-highlight("-=", "operator")
-highlight("*=", "operator")
-highlight("/=", "operator")
-highlight("%=", "operator")
-
---- Comparison Operators
-highlight("==", "operator")
-highlight("!=", "operator")
-highlight(">", "operator")
-highlight("<", "operator")
-highlight(">=", "operator")
-highlight("<=", "operator")
-
---- Logical Operators
-highlight("&&", "operator")
-highlight("||", "operator")
-highlight("!", "operator")
-
---- Bitwise Operators
-highlight("&", "operator")
-highlight("|", "operator")
-highlight("^", "operator")
-highlight("~", "operator")
-highlight("<<", "operator")
-highlight(">>", "operator")
-
 --- Special Characters
-highlight("{", "binary")
-highlight("}", "binary")
-highlight("[", "binary")
-highlight("]", "binary")
-highlight("(", "binary")
-highlight(")", "binary")
-highlight(";", "binary")
-highlight(",", "binary")
+highlight("{", "symbol")
+highlight("}", "symbol")
+highlight("[", "symbol")
+highlight("]", "symbol")
+highlight("(", "symbol")
+highlight(")", "symbol")
+highlight(";", "symbol")
+highlight(",", "symbol")
+
+highlight_region("\"", "\"", "string")
+highlight_region("//", "", "comments", true)
+highlight_region("/*", "*/", "comments")
+
+highlight_region("@", "", "symbol", true)
 
 function detect_functions(content)
     local functionNames = {}

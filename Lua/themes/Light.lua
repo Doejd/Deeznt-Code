@@ -1,6 +1,6 @@
 set_keywords("reserved", "c678dd")
 set_keywords("string", "0a3069")
-set_keywords("binary", "0550ae")
+set_keywords("number", "0550ae")
 set_keywords("symbol", "cf222e")
 set_keywords("variable", "953800")
 set_keywords("operator", "0550ae")

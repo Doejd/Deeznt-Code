@@ -128,8 +128,8 @@ highlight("wbr", "function")
 
 --- Special Char
 highlight("/", "reserved")
-highlight("<", "binary")
-highlight(">", "binary")
+highlight("<", "symbol")
+highlight(">", "symbol")
 
 --- User Comments
 highlight_region("<!--", "-->", "comments", false)

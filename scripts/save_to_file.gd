@@ -1,7 +1,7 @@
 extends Button
 @onready var theme_name_input : LineEdit = $"../../ThemeNameInput/LineEdit"
 var color_buttons = []
-var set_keywords_list = ["reserved", "string", "binary", "symbol", "variable", "operator", "comments", "error", "function", "member", "import"]
+var set_keywords_list = ["reserved", "string", "number", "symbol", "variable", "comments", "error", "function", "member", "import"]
 
 
 func _ready() -> void:

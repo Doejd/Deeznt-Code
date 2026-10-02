@@ -1,7 +1,7 @@
 set_keywords("reserved", "c678dd")
 set_keywords("string", "98c379")
 set_keywords("binary", "d19a66")
-set_keywords("symbol", "839fb6")
+set_keywords("number", "839fb6")
 set_keywords("variable", "d19a66")
 set_keywords("operator", "56b6c2")
 set_keywords("comments", "7f848e")
