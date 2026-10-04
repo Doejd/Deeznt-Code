@@ -30,17 +30,13 @@ signal on_load_get_themes(themes)
 signal emit_setting(should_load_last_project)
 
 func get_dir_contents() -> Array:
-	var items = []
-	if dir:
-		dir.list_dir_begin()
-		var file_name = dir.get_next()
-		while file_name != "":
-			items.append(file_name)
-			file_name = dir.get_next()
-		return items
-	else:
-		print("An error has been encountered")
+	if not dir: 
+		printerr("Crrent director is not a valid directory") 
 		return []
+	var items = dir.get_directories()
+	items.append_array(dir.get_files())
+	return items
+	
 	
 func save() -> void:
 	if cur_opened_file == "": return
@@ -67,6 +63,7 @@ func on_load_emit_pref():
 	if Lua_theme_dir == null: return
 	var files = Lua_theme_dir.get_files()
 	if files.is_empty(): files = [""]
+	
 	font_size = SettingManager.preference_setting_map.font_size
 	editor.set_tab_size(SettingManager.preference_setting_map.indent_size)
 	timer.wait_time = SettingManager.timer_map.save_timer_delay
@@ -76,9 +73,11 @@ func on_load_emit_pref():
 	dir = DirAccess.open(SettingManager.preference_setting_map.LastOpenPath)
 	if dir == null: dir = DirAccess.open(OS.get_user_data_dir())
 	dir.include_hidden = SettingManager.preference_setting_map.include_hidden
+	
 	editor.set_draw_fold_gutter(SettingManager.editor_setting_map.gutters_draw_fold_gutter)
 	var theme_ = SettingManager.preference_setting_map.theme
 	if !Lua_theme_dir.file_exists("%s.lua" % theme_): theme_ = files[0].get_basename()
+	
 	load_tabs(SettingManager.preference_setting_map.open_tabs)
 	load_themes()
 	update_font_size()

@@ -28,6 +28,8 @@ func _on_pressed() -> void:
 func on_emit_setting(_should_load_last_project : Variant):
 	var property = editor.get(modifies_property)
 	if property == null: property = false
-	if not control.SettingManager.editor_setting_map.has(modifies_property): return
-	button_pressed = control.SettingManager.editor_setting_map[modifies_property]
+	if control.SettingManager.editor_setting_map.has(modifies_property): 
+		button_pressed = control.SettingManager.editor_setting_map[modifies_property]
+	elif control.SettingManager.preference_setting_map.has(modifies_property):
+		button_pressed = control.SettingManager.preference_setting_map[modifies_property]
 	editor.set(modifies_property, button_pressed)
