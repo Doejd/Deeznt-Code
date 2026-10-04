@@ -6,6 +6,7 @@ var default_preference_setting_map : Dictionary = {
 	"theme" : "Github Dark",
 	"open_tabs" : [],
 	"LastOpenPath" : "",
+	"include_hidden": false
 }
 var default_editor_setting_map : Dictionary = {
 	"open_last_project_on_startup" : true,

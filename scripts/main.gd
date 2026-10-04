@@ -29,12 +29,6 @@ signal on_load_theme(theme_l)
 signal on_load_get_themes(themes)
 signal emit_setting(should_load_last_project)
 
-func get_extension(stri : String) -> String:
-	var dot_index = stri.rfind(".")
-	if dot_index != -1 and dot_index < stri.length() - 1:
-		return stri.substr(dot_index + 1)
-	return ""
-
 func get_dir_contents() -> Array:
 	var items = []
 	if dir:
@@ -80,6 +74,8 @@ func on_load_emit_pref():
 	open_last_project_on_startup = SettingManager.editor_setting_map.open_last_project_on_startup
 	intro_wind_popup = SettingManager.editor_setting_map.show_intro_wind
 	dir = DirAccess.open(SettingManager.preference_setting_map.LastOpenPath)
+	if dir == null: dir = DirAccess.open(OS.get_user_data_dir())
+	dir.include_hidden = SettingManager.preference_setting_map.include_hidden
 	editor.set_draw_fold_gutter(SettingManager.editor_setting_map.gutters_draw_fold_gutter)
 	var theme_ = SettingManager.preference_setting_map.theme
 	if !Lua_theme_dir.file_exists("%s.lua" % theme_): theme_ = files[0].get_basename()
@@ -93,7 +89,9 @@ func on_load_emit_pref():
 
 func load_tabs(open_tabs : Array) -> void:
 	if not open_last_project_on_startup: return
-	for tab in open_tabs: open_file_dir(tab, tab.get_file())
+	for tab in open_tabs: 
+		if tab.get_file() == null: continue
+		open_file_dir(tab, tab.get_file())
 	
 func load_themes() -> void:
 	var Lua_theme_dir : DirAccess = DirAccess.open("user://Lua/themes")
@@ -108,7 +106,7 @@ func display_items(items: Array) -> void:
 	item_list.add_item("..")
 	for item in items:
 		if DirAccess.open(dir.get_current_dir().path_join(item)): item_list.add_item(" " + item) # If it is a folder
-		else: item_list.add_item(icons.get_icon_data(get_extension(item)) + " " + item)
+		else: item_list.add_item(icons.get_icon_data(item.get_extension()) + " " + item)
 
 func open_file_dir(full_path : String, selected_name : String) -> void:
 	if DirAccess.open(full_path):
@@ -121,7 +119,7 @@ func open_file_dir(full_path : String, selected_name : String) -> void:
 		if file:
 			editor.text = file.get_as_text()
 			file.close()
-			editor.set_up_extensions(get_extension(selected_name))
+			editor.set_up_extensions(selected_name.get_extension())
 			editor.setup_highlighter()
 			cur_opened_file = file.get_path_absolute()
 			editor.clear_undo_history()
@@ -224,7 +222,7 @@ func _on_tab_bar_tab_clicked(tab: int) -> void:
 	from_idx = tab_bar.current_tab
 	if cur_opened_file == tab_path_arr[tab]: return
 	open_file_dir(tab_path_arr[tab], tab_bar.get_tab_title(tab))
-	editor.set_up_extensions(get_extension(tab_bar.get_tab_title(tab)))
+	editor.set_up_extensions(tab_bar.get_tab_title(tab).get_extension())
 
 func _on_tab_bar_active_tab_rearranged(idx_to: int) -> void:
 	if from_idx == -1 or from_idx == idx_to: return

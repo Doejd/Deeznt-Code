@@ -16,6 +16,10 @@ func _on_pressed() -> void:
 		control.open_last_project_on_startup = button_pressed
 		control.SettingManager.editor_setting_map[modifies_property] = button_pressed
 		return
+	elif modifies_property == "include_hidden":
+		control.dir.include_hidden = button_pressed
+		control.SettingManager.preference_setting_map[modifies_property] = button_pressed
+		return
 	var prop = editor.get(modifies_property)
 	if prop == null: return
 	editor.set(modifies_property, button_pressed)
