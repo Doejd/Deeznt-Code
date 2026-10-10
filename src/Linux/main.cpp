@@ -246,17 +246,18 @@ void LinuxHost::getHighlighting(const godot::String &ansi_string, godot::String 
             }
             cur_text += ch;
         }
+
         else if (parse_state == ParseState::Escape) {
             if (ch == '[') {parse_state = ParseState::CSI; cur_args = "";}
             else parse_state = ParseState::Normal;
         }
+
         else {
             if (ch == 'm') {applyArgs(current, cur_args); parse_state = ParseState::Normal;}
             else if (ch == 'J') {
                 const int code = cur_args.is_empty() ? 0 : static_cast<int>(cur_args.to_int());
                 if (code == 2 || code == 3) {
                     frame_text = "";
-                    cur_text = "";
                     segments.clear();
                     clear();
                     current.starting_column = 0;

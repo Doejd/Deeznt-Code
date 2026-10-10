@@ -133,6 +133,7 @@ class LinuxHost : public godot::TextEdit {
     void pushToSegments(godot::String &frame_text, godot::String &cur_text);
     void getHighlighting(const godot::String &ansi_string, godot::String &frame_text);
 
+
 protected:
     static void _bind_methods();
     void _notification(int p_what);

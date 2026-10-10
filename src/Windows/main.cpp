@@ -244,13 +244,15 @@ void WindowsHost::pushToSegments(godot::String &frame_text, godot::String &cur_t
     cur_text = "";
 }
 
-void WindowsHost::getHighlighting(godot::String &ansi_string, godot::String &frame_text){
-    ansi_string = ansi_string.replace("\r\n", "\n");
+void WindowsHost::getHighlighting(const godot::String &ansi_string, godot::String &frame_text){
     godot::String cur_args;
     godot::String cur_text;
     ParseState parse_state = ParseState::Normal;
     for (int i{0}; i < ansi_string.length(); i++) {
         const auto ch = ansi_string[i];
+
+        if (ch == '\r') continue;
+
         if (parse_state == ParseState::Normal) {
             if (ch == '\x1b') {
                 pushToSegments(frame_text, cur_text);
