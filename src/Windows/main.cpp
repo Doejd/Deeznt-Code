@@ -1,4 +1,5 @@
-#define WIN32_LEAN_AND_MEAN
+#define UNICODE
+#ifdef WIN32
 
 #include "main.h"
 #include <godot_cpp/core/class_db.hpp>
@@ -52,7 +53,7 @@ void WindowsHost::loadHistory(uint32_t max_lines) {
 
     uint64_t pos{file_size};
     int newline_count{0};
-    godot::String buffer;
+    godot::String fileTextBuffer;
 
     while (pos > 0 && newline_count <= max_lines) {
         constexpr uint64_t chunk_size{4096};
@@ -63,15 +64,15 @@ void WindowsHost::loadHistory(uint32_t max_lines) {
         godot::PackedByteArray bytes = file->get_buffer(static_cast<int64_t>(read_size));
         godot::String chunk = bytes.get_string_from_utf8();
 
-        buffer = chunk + buffer;
+        fileTextBuffer = chunk + fileTextBuffer;
         newline_count += static_cast<int>(chunk.count("\n"));
     }
 
     file->close();
 
-    buffer = buffer.replace("\r\n", "\n");
+    fileTextBuffer = fileTextBuffer.replace("\r\n", "\n");
 
-    godot::PackedStringArray lines = buffer.split("\n", false);
+    godot::PackedStringArray lines = fileTextBuffer.split("\n", false);
     if (lines.size() > max_lines) lines = lines.slice(lines.size() - max_lines, lines.size());
 
     history = lines;
@@ -127,9 +128,22 @@ int WindowsHost::ansiToColor(int code) {
     }
 }
 
+uint32_t WindowsHost::darkenColor(const uint32_t hex) {
+    const uint r = (hex >> 16) & 0xff;
+    const uint g = (hex >> 8) & 0xff;
+    const uint b = hex & 0xff;
+
+    const int darkR = std::floor(r / 1.15);
+    const int darkG = std::floor(g / 1.15);
+    const int darkB = std::floor(b / 1.15);
+
+
+    return static_cast<uint32_t>(darkR << 16 | darkG << 8 | darkB);
+}
+
 int WindowsHost::ansi256ToColor(int code){
     if (code < 16) return ansiToColor(code);
-    if (code <= 231){
+    if (code <= 231) {
         const int idx = code - 16;
 
         const int r = idx / 36;
@@ -207,8 +221,8 @@ void WindowsHost::applyArgs(Segment &seg, const godot::String &args){
         if (code == 38 || code == 48){
             const bool is_fg = (code == 38);
             const int mode = static_cast<int>(params[i+1].to_int());
-            if (mode == 5){
-                int idx = static_cast<int>(params[i+2].to_int());
+            if (mode == 5) {
+                const int idx = static_cast<int>(params[i+2].to_int());
                 const int rgb = ansi256ToColor(idx);
 
                 if (is_fg) seg.color = rgb;
@@ -233,6 +247,8 @@ void WindowsHost::applyArgs(Segment &seg, const godot::String &args){
         applyStyle(code, seg);
         i++;
     }
+    if (!seg.bold) seg.color = darkenColor(seg.color);
+    if (seg.hasBg && !seg.bold) seg.bg_color = darkenColor(seg.bg_color);
 }
 
 void WindowsHost::pushToSegments(godot::String &frame_text, godot::String &cur_text) {
@@ -247,7 +263,7 @@ void WindowsHost::pushToSegments(godot::String &frame_text, godot::String &cur_t
 void WindowsHost::getHighlighting(const godot::String &ansi_string, godot::String &frame_text){
     godot::String cur_args;
     godot::String cur_text;
-    ParseState parse_state = ParseState::Normal;
+    auto parse_state = ParseState::Normal;
     for (int i{0}; i < ansi_string.length(); i++) {
         const auto ch = ansi_string[i];
 
@@ -259,12 +275,12 @@ void WindowsHost::getHighlighting(const godot::String &ansi_string, godot::Strin
                 parse_state = ParseState::Escape;
                 continue;
             }
-            if (ch == '\n' || current.starting_column + cur_text.length() >= MAX_COLS) {
+            if (ch == '\n' || current.starting_column + cur_text.length() >= TOTAL_MAX_COLS) {
                 pushToSegments(frame_text, cur_text);
                 frame_text += '\n';
                 segments.initNewLine();
                 current.starting_column = 0;
-                continue;
+                if (ch == '\n') continue;
             }
             cur_text += ch;
         }
@@ -273,7 +289,10 @@ void WindowsHost::getHighlighting(const godot::String &ansi_string, godot::Strin
             else parse_state = ParseState::Normal;
         }
         else {
-            if (ch == 'm') {applyArgs(current, cur_args); parse_state = ParseState::Normal;}
+            if (ch == 'm') {
+                applyArgs(current, cur_args);
+                parse_state = ParseState::Normal;
+            }
             else if (ch == 'J') {
                 const int code = cur_args.is_empty() ? 0 : static_cast<int>(cur_args.to_int());
                 if (code == 2 || code == 3) {
@@ -283,11 +302,6 @@ void WindowsHost::getHighlighting(const godot::String &ansi_string, godot::Strin
                     clear();
                     current.starting_column = 0;
                 }
-                parse_state = ParseState::Normal;
-            }
-            else if (ch == 'K') {
-                const int code = cur_args.is_empty() ? 0 : static_cast<int>(cur_args.to_int());
-                if (code == 0 || code == 2) cur_text = "";
                 parse_state = ParseState::Normal;
             }
             else if (ch >= '@' && ch <= '~') parse_state = ParseState::Normal;
@@ -512,7 +526,7 @@ void WindowsHost::_gui_input(const godot::Ref<godot::InputEvent> &event) {
 void WindowsHost::_process(double p_delta) {
     if (godot::Engine::get_singleton()->is_editor_hint()) return;
 
-    auto res = readFromTerminal();
+    const auto res = readFromTerminal();
 
     godot::String frame_text{""};
 
@@ -525,7 +539,7 @@ void WindowsHost::_process(double p_delta) {
     insert_text_at_caret(frame_text);
 
     if (const int excess = get_line_count() - static_cast<int>(segments.capacity()); excess > 0) {
-        remove_text(0, 0, excess, static_cast<int32_t>(get_line(excess).length()));
+        remove_text(0, 0, excess, 0);
         highlighter->clear_highlighting_cache();
         center_viewport_to_caret();
     }
@@ -564,4 +578,5 @@ void  WindowsHost::_draw() {
     }
 }
 
-LineRingBuffer WindowsHost::getSegments() const {return segments;}
+LineRingBuffer& WindowsHost::getSegments() {return segments;}
+#endif

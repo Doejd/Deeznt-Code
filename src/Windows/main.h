@@ -107,7 +107,7 @@ class WindowsHost : public godot::TextEdit {
 
     CHAR buf[32768]; // 32KB read buffer(for ReadFile()), in order not to spike frame rate
 
-    static constexpr uint8_t MAX_COLS{120};
+    static constexpr uint8_t TOTAL_MAX_COLS{120};
 
     godot::String input;
     godot::Vector2i input_start_line_col{0, 0};
@@ -129,6 +129,7 @@ class WindowsHost : public godot::TextEdit {
     bool clampCaret();
     [[nodiscard]] int64_t getRelativeCaretIndex() const;
 
+    static uint32_t darkenColor(uint32_t hex);
     static int ansiToColor(int code);
     static int ansi256ToColor(int code);
 
@@ -155,7 +156,7 @@ public:
     void _process(double p_delta) override;
     void _draw() override;
 
-    [[nodiscard]] LineRingBuffer getSegments() const;
+    [[nodiscard]] LineRingBuffer& getSegments();
 };
 
 

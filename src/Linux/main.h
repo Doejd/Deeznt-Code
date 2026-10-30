@@ -61,6 +61,11 @@ public:
         data[GetPhysicalIndex(size_ - 1)].push_back(seg);
     }
 
+    void clearLastLine() {
+        if (empty()) initNewLine();
+        data[GetPhysicalIndex(size_ - 1)].clear();
+    }
+
     void initNewLine() {
         if (capacity_ == 0) return;
 
@@ -123,6 +128,7 @@ class LinuxHost : public godot::TextEdit {
     bool clampCaret();
     [[nodiscard]] int64_t getRelativeCaretIndex() const;
 
+    static uint32_t darkenColor(uint32_t hex);
     static int ansiToColor(int code);
     static int ansi256ToColor(int code);
 

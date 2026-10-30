@@ -138,6 +138,19 @@ int LinuxHost::ansiToColor(int code) {
     }
 }
 
+uint32_t LinuxHost::darkenColor(const uint32_t hex) {
+    const uint r = (hex >> 16) & 0xff;
+    const uint g = (hex >> 8) & 0xff;
+    const uint b = hex & 0xff;
+
+    const int darkR = std::floor(r / 1.15);
+    const int darkG = std::floor(g / 1.15);
+    const int darkB = std::floor(b / 1.15);
+
+
+    return static_cast<uint32_t>(darkR << 16 | darkG << 8 | darkB);
+}
+
 int LinuxHost::ansi256ToColor(int code){
     if (code < 16) return ansiToColor(code);
     if (code <= 231) {
@@ -172,7 +185,7 @@ void LinuxHost::applyStyle(const int code, Segment &seg){
         case 40 ... 47: seg.bg_color = ansiToColor(code - 40); seg.hasBg = true; break;
         case 90 ... 97: seg.color = ansiToColor(code - 90 + 8); break;
         case 100 ... 107: seg.bg_color = ansiToColor(code - 100 + 8); seg.hasBg = true; break;
-        default: ;
+        default: break;
     }
 }
 
@@ -194,7 +207,7 @@ void LinuxHost::applyArgs(Segment &seg, const godot::String &args) {
                 i += 3;
                 continue;
             }
-            if (mode == 2){
+            if (mode == 2) {
                 const int r = static_cast<int>(params[i+2].to_int());
                 const int g = static_cast<int>(params[i+3].to_int());
                 const int b = static_cast<int>(params[i+4].to_int());
@@ -211,6 +224,8 @@ void LinuxHost::applyArgs(Segment &seg, const godot::String &args) {
         applyStyle(code, seg);
         i++;
     }
+    if (!seg.bold) seg.color = darkenColor(seg.color);
+    if (seg.hasBg && !seg.bold) seg.bg_color = darkenColor(seg.bg_color);
 }
 
 void LinuxHost::pushToSegments(godot::String &frame_text, godot::String &cur_text) {
@@ -253,11 +268,15 @@ void LinuxHost::getHighlighting(const godot::String &ansi_string, godot::String 
         }
 
         else {
-            if (ch == 'm') {applyArgs(current, cur_args); parse_state = ParseState::Normal;}
+            if (ch == 'm') {
+                applyArgs(current, cur_args);
+                parse_state = ParseState::Normal;
+            }
             else if (ch == 'J') {
                 const int code = cur_args.is_empty() ? 0 : static_cast<int>(cur_args.to_int());
                 if (code == 2 || code == 3) {
                     frame_text = "";
+                    cur_text = "";
                     segments.clear();
                     clear();
                     current.starting_column = 0;
@@ -499,6 +518,7 @@ void LinuxHost::_process(double p_delta) {
 void LinuxHost::_draw() {
     if (godot::Engine::get_singleton()->is_editor_hint()) return;
 
+    if (segments.empty()) return;
 
     if (font.is_null()) {
         font = get_theme_font("font", "TextEdit");
@@ -512,6 +532,7 @@ void LinuxHost::_draw() {
     const int cell_width = static_cast<int>(font->get_char_size('W', font_size).x);
 
     for (int line = first_visible; line < last_visible; line++) {
+        if (line >= segments.size()) continue;
         for (const auto &seg : segments[line]) {
             if (!seg.hasBg) continue;
             const int char_column = godot::Math::max(0 , seg.starting_column);
