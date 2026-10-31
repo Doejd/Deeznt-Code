@@ -46,19 +46,74 @@ bool LinuxHost::fileExists(const char *path) {
     return path && stat(path, &st) == 0 && S_ISREG(st.st_mode);
 }
 
-void LinuxHost::loadHistory(uint32_t max_lines) {
-    const char* hist_path = getenv("HISTFILE");
-    godot::String path;
-    if (!hist_path) {
-        godot::UtilityFunctions::printerr("HISTFILE environment variable not configured, trying backup");
-        const char* home_path = getenv("HOME");
-        if (!home_path) {godot::UtilityFunctions::printerr("Could not locate home path (backup) file/history is only local"); return;}
-        path = godot::String(home_path) + "/.bash_history";
-    }
-    else path = hist_path;
-    if (!fileExists(path.utf8().get_data())) {godot::UtilityFunctions::printerr("Could not locate history file/history is only local"); return;}
+godot::PackedStringArray LinuxHost::readEtcShells() {
+    const godot::Ref<godot::FileAccess> etcShells = godot::FileAccess::open("/etc/shells", godot::FileAccess::READ);
 
-    const godot::Ref<godot::FileAccess> file = godot::FileAccess::open(godot::String(path), godot::FileAccess::READ);
+    if (etcShells.is_null()) {
+        godot::UtilityFunctions::printerr("Could not find /etc/shells file");
+        return {};
+    }
+
+    const godot::String trustedShells = etcShells->get_as_text();
+    godot::PackedStringArray validShells;
+    auto lineSplit = trustedShells.split("\n", false);
+
+    for (const auto &line : lineSplit) {
+        if (const godot::String ln = line.strip_edges(); !ln.is_empty() && !ln.begins_with("#")) {
+            validShells.push_back(ln);
+        }
+    }
+
+    return validShells;
+}
+
+
+godot::String LinuxHost::loadHistoryPath(const std::string &shell_name) {
+    readEtcShells();
+    godot::String resultPath{""};
+    const char* homePath = getenv("HOME");
+    if (strstr(shell_name.c_str(), "bash") != nullptr) {
+        const char *histPath = getenv("HISTFILE");
+        if (histPath != nullptr) {
+            godot::UtilityFunctions::print("Found the bash shell history file, path: ", histPath);
+            resultPath = godot::String(histPath);
+        }
+        if (homePath != nullptr) {
+            const auto historyPath = godot::String(homePath) + godot::String("/.bash_history");
+            godot::UtilityFunctions::print("Backup path for bash shell: ", historyPath);
+            resultPath = historyPath;
+        }
+        godot::UtilityFunctions::printerr("Could not find bash history path");
+    }
+    else if (strstr(shell_name.c_str(), "zsh") != nullptr) {
+        const char *histPath = getenv("HISTFILE");
+        if (histPath != nullptr) {
+            godot::UtilityFunctions::print("Found the zsh shell history file, path: ", histPath);
+            resultPath = godot::String(histPath);
+        }
+        if (homePath != nullptr) {
+            const auto historyPath = godot::String(homePath) + godot::String("/.zsh_history");
+            godot::UtilityFunctions::print("Backup path for zsh shell: ", historyPath);
+            resultPath = historyPath;
+        }
+        godot::UtilityFunctions::printerr("Could not find zsh history path");
+    }
+    else if (strstr(shell_name.c_str(), "fish") != nullptr) {
+        if (homePath != nullptr) {
+            resultPath = "/.local/share/fish/fish_history";
+        }
+        godot::UtilityFunctions::printerr("Could not find fish history path");
+    }
+    if (!fileExists(resultPath.utf8().get_data())) {
+        godot::UtilityFunctions::printerr("Could not find the history file, history is only local");
+        return "";
+    }
+    return resultPath;
+}
+
+void LinuxHost::loadHistory(uint32_t max_lines) {
+    auto path = loadHistoryPath("bash");
+    const godot::Ref<godot::FileAccess> file = godot::FileAccess::open(path, godot::FileAccess::READ);
     if (file.is_null()) {godot::UtilityFunctions::printerr("Could not locate history file/history is only local"); return;}
 
     const auto file_size = file->get_length();
@@ -309,7 +364,7 @@ void LinuxHost::_notification(int p_what) {
     }
 }
 
-void LinuxHost::startTerminal(){
+void LinuxHost::startTerminal() {
     if (running) return;
     if (openpty(&master_fd, &slave_fd, nullptr, nullptr, nullptr) == -1) {godot::UtilityFunctions::printerr("Openpty Failed"); return;}
     const int flags = fcntl(master_fd, F_GETFL, 0);
@@ -325,6 +380,7 @@ void LinuxHost::startTerminal(){
         login_tty(slave_fd);
 
         execlp("bash", "bash", nullptr);
+
 
         perror("execlp");
         _exit(1);

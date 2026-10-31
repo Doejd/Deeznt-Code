@@ -2,6 +2,7 @@
 #define LINUXHOST_H
 
 #include <vector>
+#include <bits/basic_string.h>
 #include <godot_cpp/classes/text_edit.hpp>
 #include <godot_cpp/classes/syntax_highlighter.hpp>
 #include <godot_cpp/core/class_db.hpp>
@@ -123,6 +124,9 @@ class LinuxHost : public godot::TextEdit {
     LineRingBuffer segments{22560};
 
     static bool fileExists(const char *path);
+
+    static godot::PackedStringArray readEtcShells();
+    static godot::String loadHistoryPath(const std::string &shell_name);
     void loadHistory(uint32_t max_lines);
 
     bool clampCaret();
