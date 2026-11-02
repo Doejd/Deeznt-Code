@@ -3,9 +3,9 @@
 [ext_resource type="Script" uid="uid://d3mjdab1o1wqs" path="res://scripts/main.gd" id="1_ig7tw"]
 [ext_resource type="Script" uid="uid://bctpagkgq0qgi" path="res://scripts/edit.gd" id="2_0xm2m"]
 [ext_resource type="Script" uid="uid://dsf42r8isrgph" path="res://scripts/theme_select.gd" id="2_272bh"]
-[ext_resource type="FontFile" uid="uid://cbkrfirh0p48" path="res://Font/FiraCodeNerdFont-Regular.ttf" id="2_h2yge"]
+[ext_resource type="FontFile" uid="uid://dw7fa0t2jt4w8" path="res://Font/FiraCodeNerdFont-Regular.ttf" id="2_h2yge"]
 [ext_resource type="Texture2D" uid="uid://b0od7fox2dy0i" path="res://Editor Icons/can fold.svg" id="4_yaehf"]
-[ext_resource type="FontFile" uid="uid://cfoksy326afx" path="res://Font/Inconsolata-Regular.ttf" id="5_7mycd"]
+[ext_resource type="FontFile" uid="uid://cb3wwv1wg0r6s" path="res://Font/Inconsolata-Regular.ttf" id="5_7mycd"]
 [ext_resource type="Texture2D" uid="uid://bf8sie61mdle8" path="res://Editor Icons/folded.svg" id="5_074og"]
 [ext_resource type="Script" uid="uid://cads53hj1d2w1" path="res://scripts/intro_window.gd" id="6_7mycd"]
 [ext_resource type="Script" uid="uid://nkw8h3awv1jx" path="res://scripts/never_show_again_button.gd" id="7_272bh"]
@@ -102,7 +102,7 @@ auto_brace_completion_enabled = true
 auto_brace_completion_highlight_matching = true
 script = ExtResource("2_0xm2m")
 
-[node name="LinuxHost" type="LinuxHost" parent="Editor_Container/VSplitContainer" unique_id=1551228590]
+[node name="LinuxHost" type="LinuxHost" parent="Editor_Container/VSplitContainer" unique_id=1615816738]
 layout_mode = 2
 size_flags_vertical = 3
 
@@ -900,6 +900,12 @@ visible = false
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
+
+[node name="IncludeHidden" type="CheckBox" parent="Settings Window/HBoxContainer/Settings/Advanced Settings" unique_id=1717852736]
+layout_mode = 2
+text = "Show Hidden Files"
+script = ExtResource("10_ycdy4")
+modifies_property = "include_hidden"
 
 [connection signal="emit_setting" from="." to="Settings Window/HBoxContainer/Settings/General Settings/SaveTimeDelaySetting/HSlider" method="_on_control_edit_setting"]
 [connection signal="emit_setting" from="." to="Settings Window/HBoxContainer/Settings/General Settings/ReloadTimeDelaySetting/HSlider" method="_on_control_edit_setting"]

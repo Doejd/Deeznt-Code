@@ -2,6 +2,7 @@
 #ifdef WIN32
 
 #include "main.h"
+#include "../shared/Color.h"
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/file_access.hpp>
@@ -107,58 +108,6 @@ int64_t WindowsHost::getRelativeCaretIndex() const {
     return idx;
 }
 
-int WindowsHost::ansiToColor(int code) {
-    switch (code) {
-        case 0: return 0x000000;     // black
-        case 1: return 0xff0000;     // red
-        case 2: return 0x00ff00;     // green
-        case 3: return 0xffff00;     // yellow
-        case 4: return 0x0000ff;     // blue
-        case 5: return 0xff00ff;     // magenta
-        case 6: return 0x00ffff;     // cyan
-        case 7: return 0xffffff;     // white
-        case 8: return 0x888888;     // bright black / dark gray
-        case 9: return 0xff8888;     // bright red
-        case 10: return 0x88ff88;    // bright green
-        case 11: return 0xffff88;    // bright yellow
-        case 12: return 0x8888ff;    // bright blue
-        case 13: return 0xff88ff;    // bright magenta
-        case 14: return 0x88ffff;    // bright cyan
-        default: return 0xffffff;    // default white
-    }
-}
-
-uint32_t WindowsHost::darkenColor(const uint32_t hex) {
-    const uint r = (hex >> 16) & 0xff;
-    const uint g = (hex >> 8) & 0xff;
-    const uint b = hex & 0xff;
-
-    const int darkR = std::floor(r / 1.15);
-    const int darkG = std::floor(g / 1.15);
-    const int darkB = std::floor(b / 1.15);
-
-
-    return static_cast<uint32_t>(darkR << 16 | darkG << 8 | darkB);
-}
-
-int WindowsHost::ansi256ToColor(int code){
-    if (code < 16) return ansiToColor(code);
-    if (code <= 231) {
-        const int idx = code - 16;
-
-        const int r = idx / 36;
-        const int g = (idx % 36) / 6;
-        const int b = idx % 6;
-
-        const int steps[6] = {0, 95, 135, 175, 215, 255};
-
-        return steps[r] << 16 | steps[g] << 8 | steps[b];
-
-    }
-    const int gray = 8 + (code - 232) * 10;
-    return gray << 16 | gray << 8 | gray;
-}
-
 
 void WindowsHost::applyStyle(const int code, Segment &seg){
     switch(code){
@@ -180,7 +129,7 @@ void WindowsHost::applyStyle(const int code, Segment &seg){
         case 34:
         case 35:
         case 36:
-        case 37: seg.color = ansiToColor(code - 30); break;
+        case 37: seg.color = color::ansiToColor(code - 30); break;
 
         case 40:
         case 41:
@@ -189,7 +138,7 @@ void WindowsHost::applyStyle(const int code, Segment &seg){
         case 44:
         case 45:
         case 46:
-        case 47: seg.bg_color = ansiToColor(code - 40); seg.hasBg = true; break;
+        case 47: seg.bg_color = color::ansiToColor(code - 40); seg.hasBg = true; break;
 
         case 90:
         case 91:
@@ -198,7 +147,7 @@ void WindowsHost::applyStyle(const int code, Segment &seg){
         case 94:
         case 95:
         case 96:
-        case 97: seg.color = ansiToColor(code - 90 + 8); break;
+        case 97: seg.color = color::ansiToColor(code - 90 + 8); break;
 
         case 100:
         case 101:
@@ -207,7 +156,7 @@ void WindowsHost::applyStyle(const int code, Segment &seg){
         case 104:
         case 105:
         case 106:
-        case 107: seg.bg_color = ansiToColor(code - 100 + 8); seg.hasBg = true; break;
+        case 107: seg.bg_color = color::ansiToColor(code - 100 + 8); seg.hasBg = true; break;
 
         default: ;
     }
@@ -223,7 +172,7 @@ void WindowsHost::applyArgs(Segment &seg, const godot::String &args){
             const int mode = static_cast<int>(params[i+1].to_int());
             if (mode == 5) {
                 const int idx = static_cast<int>(params[i+2].to_int());
-                const int rgb = ansi256ToColor(idx);
+                const int rgb = color::ansi256ToColor(idx);
 
                 if (is_fg) seg.color = rgb;
                 else {seg.bg_color = rgb; seg.hasBg = true;}
@@ -247,8 +196,8 @@ void WindowsHost::applyArgs(Segment &seg, const godot::String &args){
         applyStyle(code, seg);
         i++;
     }
-    if (!seg.bold) seg.color = darkenColor(seg.color);
-    if (seg.hasBg && !seg.bold) seg.bg_color = darkenColor(seg.bg_color);
+    if (!seg.bold) seg.color = color::darkenColor(seg.color);
+    if (seg.hasBg && !seg.bold) seg.bg_color = color::darkenColor(seg.bg_color);
 }
 
 void WindowsHost::pushToSegments(godot::String &frame_text, godot::String &cur_text) {

@@ -12,6 +12,8 @@ add_executable(godot_terminal
         src/Windows/main.h
         src/Windows/register_types.cpp
         src/Windows/register_types.h
+        src/shared/LineRingBuffer.h
+        src/shared/Color.h
 )
 
 target_include_directories(godot_terminal PRIVATE
