@@ -1,23 +1,9 @@
 #ifndef GODOT_TERMINAL_LINERINGBUFFER_H
 #define GODOT_TERMINAL_LINERINGBUFFER_H
+
 #include <vector>
 #include <godot_cpp/templates/vector.hpp>
-
-
-enum class ParseState {
-    Normal,
-    Escape,
-    CSI
-};
-
-struct Segment {
-    uint32_t color{0xffffff};
-    uint32_t bg_color{0x000000};
-    uint32_t length{0};
-    int32_t starting_column{0};
-    bool hasBg{false};
-    bool bold{false};
-};
+#include "Segment.h"
 
 
 class LineRingBuffer {
@@ -25,7 +11,7 @@ class LineRingBuffer {
     std::vector<godot::Vector<Segment>> data;
     size_t head{0};
 
-    size_t GetPhysicalIndex(size_t index) const {
+    [[nodiscard]] size_t GetPhysicalIndex(size_t index) const {
         return (head + index) % capacity_;
     }
 
@@ -47,11 +33,11 @@ public:
         return data[GetPhysicalIndex(index)];
     }
 
-    size_t size() const {return size_;}
-    size_t capacity() const {return capacity_;}
+    [[nodiscard]] size_t size() const {return size_;}
+    [[nodiscard]] size_t capacity() const {return capacity_;}
 
-    bool empty() const {return size_ == 0;}
-    bool full() const {return size_ == capacity_;}
+    [[nodiscard]] bool empty() const {return size_ == 0;}
+    [[nodiscard]] bool full() const {return size_ == capacity_;}
 
     void pushSegment(const Segment& seg) {
         if (empty()) initNewLine();

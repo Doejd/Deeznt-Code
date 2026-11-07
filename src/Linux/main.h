@@ -10,6 +10,12 @@
 #include <sys/types.h>
 
 
+enum class ParseState {
+    Normal,
+    Escape,
+    CSI
+};
+
 class AnsiHighlighter : public godot::SyntaxHighlighter {
     GDCLASS(AnsiHighlighter, godot::SyntaxHighlighter);
 
@@ -54,11 +60,8 @@ class LinuxHost : public godot::TextEdit {
     static godot::String loadHistoryPath(const std::string &shell_name);
     void loadHistory(uint32_t max_lines);
 
-    bool clampCaret();
+    void clampCaret();
     [[nodiscard]] int64_t getRelativeCaretIndex() const;
-
-    static void applyStyle(int code, Segment &seg);
-    static void applyArgs(Segment &seg, const godot::String &args);
 
     void pushToSegments(godot::String &frame_text, godot::String &cur_text);
     void getHighlighting(const godot::String &ansi_string, godot::String &frame_text);
@@ -79,6 +82,7 @@ public:
     void _gui_input(const godot::Ref<godot::InputEvent> &event) override;
     void _process(double p_delta) override;
     void _draw() override;
+    void _paste(int caret_index) override;
 
     [[nodiscard]] LineRingBuffer &getSegments();
 };
