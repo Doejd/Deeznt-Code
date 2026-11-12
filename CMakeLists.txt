@@ -15,6 +15,7 @@ add_executable(godot_terminal
         src/shared/LineRingBuffer.h
         src/shared/Color.h
         src/shared/Segment.h
+        src/shared/RingBuffer.h
 )
 
 target_include_directories(godot_terminal PRIVATE

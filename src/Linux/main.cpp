@@ -31,7 +31,7 @@ godot::Dictionary AnsiHighlighter::_get_line_syntax_highlighting(const int line)
     const auto host = cast_to<LinuxHost>(get_text_edit());
     if (!host) return res;
 
-    const auto segments_per_line = host->getSegments();
+    auto segments_per_line = host->getSegments();
 
     if (line < 0) return res;
     for (const auto &seg : segments_per_line[line]) {
@@ -77,7 +77,6 @@ godot::PackedStringArray LinuxHost::readEtcShells() {
 
 
 godot::String LinuxHost::loadHistoryPath(const std::string &shell_name) {
-    readEtcShells();
     godot::String resultPath{""};
     const char* homePath = getenv("HOME");
     if (strstr(shell_name.c_str(), "bash") != nullptr) {
@@ -125,8 +124,8 @@ godot::String LinuxHost::loadHistoryPath(const std::string &shell_name) {
     return resultPath;
 }
 
-void LinuxHost::loadHistory(uint32_t max_lines) {
-    auto path = loadHistoryPath("bash");
+void LinuxHost::loadHistory(uint32_t max_lines, const std::string &shell_name) {
+    auto path = loadHistoryPath(shell_name);
     const godot::Ref<godot::FileAccess> file = godot::FileAccess::open(path, godot::FileAccess::READ);
     if (file.is_null()) {godot::UtilityFunctions::printerr("Could not locate history file/history is only local"); return;}
 
@@ -154,7 +153,9 @@ void LinuxHost::loadHistory(uint32_t max_lines) {
     godot::PackedStringArray lines = fileTextBuffer.split("\n", false);
     if (lines.size() > max_lines) lines = lines.slice(lines.size() - max_lines, lines.size());
 
-    history = lines;
+    godot::UtilityFunctions::print("loaded lines: ", lines.size());
+
+    for (const auto &line : lines) history.push_back(line);
     history_index = static_cast<int>(history.size());
     history_temp = "";
 }
@@ -293,7 +294,7 @@ void LinuxHost::startTerminal() {
 
     godot::UtilityFunctions::print("PTY searched, PID: ", child_pid);
 
-    loadHistory(500);
+    loadHistory(500, "bash");
 }
 
 void LinuxHost::endTerminal(){
@@ -534,6 +535,6 @@ void LinuxHost::_paste(int caret_index) {
     accept_event();
 }
 
-LineRingBuffer &LinuxHost::getSegments() {return segments;}
+const LineRingBuffer& LinuxHost::getSegments() const {return segments;}
 
 #endif

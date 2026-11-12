@@ -1,6 +1,7 @@
 #ifndef LINUXHOST_H
 #define LINUXHOST_H
 
+#include "../shared/RingBuffer.h"
 #include "../shared/LineRingBuffer.h"
 #include <godot_cpp/classes/text_edit.hpp>
 #include <godot_cpp/classes/syntax_highlighter.hpp>
@@ -42,7 +43,7 @@ class LinuxHost : public godot::TextEdit {
 
     godot::String history_temp;
     int32_t history_index{0};
-    godot::PackedStringArray history;
+    RingBuffer<godot::String> history{500};
 
     godot::Vector2i input_start_line_col{0, 0};
 
@@ -58,7 +59,7 @@ class LinuxHost : public godot::TextEdit {
 
     static godot::PackedStringArray readEtcShells();
     static godot::String loadHistoryPath(const std::string &shell_name);
-    void loadHistory(uint32_t max_lines);
+    void loadHistory(uint32_t max_lines, const std::string &shell_name);
 
     void clampCaret();
     [[nodiscard]] int64_t getRelativeCaretIndex() const;
@@ -84,6 +85,6 @@ public:
     void _draw() override;
     void _paste(int caret_index) override;
 
-    [[nodiscard]] LineRingBuffer &getSegments();
+    [[nodiscard]] const LineRingBuffer& getSegments() const;
 };
 #endif
