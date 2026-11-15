@@ -100,7 +100,7 @@ namespace AnsiParseHelpers {
 
     }
 
-    inline void parseAndApplyArgs(Segment &seg, const godot::String &args) {
+    inline void parseAndApplyColorArgs(Segment &seg, const godot::String &args, const float amountToDarkenNonBoldColors) {
         auto params = args.split(";");
         for (ssize_t i = 0; i < params.size();){
             const int code = static_cast<int>(params[i].to_int());
@@ -132,8 +132,8 @@ namespace AnsiParseHelpers {
             applyAnsiColorCode(code, seg);
             i++;
         }
-        if (!seg.bold) seg.color = color::darkenColor(seg.color, 1.15);
-        if (seg.hasBg && !seg.bold) seg.bg_color = color::darkenColor(seg.bg_color, 1.15);
+        if (!seg.bold) seg.color = color::darkenColor(seg.color, amountToDarkenNonBoldColors);
+        if (seg.hasBg && !seg.bold) seg.bg_color = color::darkenColor(seg.bg_color, amountToDarkenNonBoldColors);
     }
 
 }

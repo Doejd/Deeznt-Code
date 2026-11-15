@@ -36,30 +36,36 @@ class LinuxHost : public godot::TextEdit {
     pid_t child_pid{-1};
     bool running{false};
 
-    Segment current;
+    // The options for switching the shell that'll be exposed to the engine
+    godot::PackedStringArray validLinuxShells;
+    godot::String selectedShell;
+
+    // The properties that will be exposed to the engine
+    int32_t MAX_COLS_PER_LINE{120};
+    int32_t MAX_HISTORY_SIZE{100};
+    int32_t MAX_TERMINAL_SCROLLBACK_LINES{22560};
+    float_t AMOUNT_TO_DARKEN_NON_BOLD_COLORS{1.15};
 
     godot::String input;
     godot::Ref<godot::Font> font;
+    godot::Vector2i input_start_line_col{0, 0};
 
     godot::String history_temp;
     int32_t history_index{0};
-    RingBuffer<godot::String> history{500};
-
-    godot::Vector2i input_start_line_col{0, 0};
-
-    static constexpr uint8_t TOTAL_MAX_COLS{120};
+    RingBuffer<godot::String> history{static_cast<size_t>(MAX_HISTORY_SIZE)};
 
     char buffer[32768]; // 32KB read buffer(for read()), in order not to spike the frame rate
 
     godot::Ref<AnsiHighlighter> highlighter;
 
-    LineRingBuffer segments{22560};
+    Segment current;
+    LineRingBuffer segments{static_cast<size_t>(MAX_TERMINAL_SCROLLBACK_LINES)};
 
     static bool fileExists(const char *path);
 
     static godot::PackedStringArray readEtcShells();
     static godot::String loadHistoryPath(const std::string &shell_name);
-    void loadHistory(uint32_t max_lines, const std::string &shell_name);
+    void loadHistory(const std::string &shell_name);
 
     void clampCaret();
     [[nodiscard]] int64_t getRelativeCaretIndex() const;
@@ -77,6 +83,13 @@ public:
     void endTerminal();
     void writeToTerminal(const godot::String &text);
     godot::String readFromTerminal();
+
+    //getters and setters
+    float_t get_amount_to_darken_non_bold_colors() const {return AMOUNT_TO_DARKEN_NON_BOLD_COLORS;}
+    int32_t get_max_columns_per_line() const {return MAX_COLS_PER_LINE;}
+
+    void set_amount_to_darken_non_bold_colors(const float_t amount) {AMOUNT_TO_DARKEN_NON_BOLD_COLORS = amount;}
+    void set_max_columns_per_line(const int32_t max_columns_per_line) {MAX_COLS_PER_LINE = max_columns_per_line;}
 
     void _ready() override;
     void _exit_tree() override;

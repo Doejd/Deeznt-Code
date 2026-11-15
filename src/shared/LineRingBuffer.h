@@ -25,6 +25,14 @@ public:
         size_ = 0;
     }
 
+    void resize(const size_t &new_capacity) {
+        /*
+         * In the ideal scenario this method will not be used, but since I plan on adding that as customization options, I might need it
+         */
+        data.resize(new_capacity);
+        capacity_ = new_capacity;
+    }
+
     godot::Vector<Segment>& operator[](size_t index) {
         return data[GetPhysicalIndex(index)];
     }

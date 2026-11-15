@@ -20,6 +20,14 @@ public:
         else head_ = (head_ + 1) % capacity_;
     }
 
+    void resize(const size_t &new_capacity) {
+        /*
+         * In the ideal case this will not be used however, for changing history scrollback size I will need this
+         */
+        data.resize(new_capacity);
+        capacity_ = new_capacity;
+    }
+
     void push_back(T&& x) {
         const bool isFull = is_full();
         data[tail_] = std::move(x);

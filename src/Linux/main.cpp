@@ -54,21 +54,23 @@ godot::PackedStringArray LinuxHost::readEtcShells() {
 
     if (etcShells.is_null()) {
         godot::UtilityFunctions::printerr("Could not find /etc/shells file");
-        return {};
+        return {"/usr/bin/bash"};
     }
 
     const godot::String trustedShells = etcShells->get_as_text();
     godot::PackedStringArray validShells;
-    auto lineSplit = trustedShells.split("\n", false);
 
-    for (const auto &line : lineSplit) {
-        if (const godot::String ln = line.strip_edges(); !ln.is_empty() && !ln.begins_with("#")) {
+    while (!etcShells->eof_reached()) {
+        const godot::String line = etcShells->get_line().strip_edges();
+        if (!line.is_empty() && !line.begins_with("#")) {
             auto fileName = line.get_file().strip_edges();
+
             const bool isValidShell = fileName.contains("bash") || fileName.contains("zsh") || fileName.contains("pwsh") ||
-                                fileName.contains("powershell") || fileName.contains("fish");
+                                      fileName.contains("powershell") || fileName.contains("fish");
+
             const bool blacklisted = fileName == "sh" || fileName == "dash" || fileName == "rbash";
 
-            if (isValidShell && !blacklisted) validShells.push_back(ln);
+            if (isValidShell && !blacklisted) validShells.push_back(line);
         }
     }
 
@@ -124,7 +126,7 @@ godot::String LinuxHost::loadHistoryPath(const std::string &shell_name) {
     return resultPath;
 }
 
-void LinuxHost::loadHistory(uint32_t max_lines, const std::string &shell_name) {
+void LinuxHost::loadHistory(const std::string &shell_name) {
     auto path = loadHistoryPath(shell_name);
     const godot::Ref<godot::FileAccess> file = godot::FileAccess::open(path, godot::FileAccess::READ);
     if (file.is_null()) {godot::UtilityFunctions::printerr("Could not locate history file/history is only local"); return;}
@@ -135,7 +137,7 @@ void LinuxHost::loadHistory(uint32_t max_lines, const std::string &shell_name) {
     int newline_count{0};
     godot::String fileTextBuffer;
 
-    while (pos > 0 && newline_count <= max_lines) {
+    while (pos > 0 && newline_count <= MAX_HISTORY_SIZE) {
         constexpr uint64_t chunk_size{4096};
         const uint64_t read_size = godot::Math::min(chunk_size, pos);
         pos -= read_size;
@@ -151,7 +153,7 @@ void LinuxHost::loadHistory(uint32_t max_lines, const std::string &shell_name) {
     file->close();
 
     godot::PackedStringArray lines = fileTextBuffer.split("\n", false);
-    if (lines.size() > max_lines) lines = lines.slice(lines.size() - max_lines, lines.size());
+    if (lines.size() > MAX_HISTORY_SIZE) lines = lines.slice(lines.size() - MAX_HISTORY_SIZE, lines.size());
 
     godot::UtilityFunctions::print("loaded lines: ", lines.size());
 
@@ -210,7 +212,7 @@ void LinuxHost::getHighlighting(const godot::String &ansi_string, godot::String 
                 parse_state = ParseState::Escape;
                 continue;
             }
-            if (ch == '\n' || current.starting_column + cur_text.length() >= TOTAL_MAX_COLS) {
+            if (ch == '\n' || current.starting_column + cur_text.length() >= MAX_COLS_PER_LINE) {
                 pushToSegments(frame_text, cur_text);
                 frame_text += '\n';
                 segments.initNewLine();
@@ -227,7 +229,7 @@ void LinuxHost::getHighlighting(const godot::String &ansi_string, godot::String 
 
         else {
             if (ch == 'm') {
-                AnsiParseHelpers::parseAndApplyArgs(current, cur_args);
+                AnsiParseHelpers::parseAndApplyColorArgs(current, cur_args, AMOUNT_TO_DARKEN_NON_BOLD_COLORS);
                 parse_state = ParseState::Normal;
             }
             else if (ch == 'J') {
@@ -253,6 +255,19 @@ void LinuxHost::_bind_methods(){
     godot::ClassDB::bind_method(godot::D_METHOD("endTerminal"), &LinuxHost::endTerminal);
     godot::ClassDB::bind_method(godot::D_METHOD("startTerminal"), &LinuxHost::startTerminal);
     godot::ClassDB::bind_method(godot::D_METHOD("writeToTerminal"), &LinuxHost::writeToTerminal);
+
+    godot::ClassDB::bind_method(godot::D_METHOD("get_amount_to_darken_non_bold_colors"), &LinuxHost::get_amount_to_darken_non_bold_colors);
+    godot::ClassDB::bind_method(godot::D_METHOD("get_max_columns_per_line"), &LinuxHost::get_max_columns_per_line);
+
+    godot::ClassDB::bind_method(godot::D_METHOD("set_amount_to_darken_non_bold_colors", "amount"), &LinuxHost::set_amount_to_darken_non_bold_colors);
+    godot::ClassDB::bind_method(godot::D_METHOD("set_max_columns_per_line", "max_columns_per_line"), &LinuxHost::set_max_columns_per_line);
+
+    godot::ClassDB::add_property("LinuxHost",
+        godot::PropertyInfo{godot::Variant::FLOAT, "amount_to_darken_non_bold_colors", godot::PROPERTY_HINT_RANGE, "1.0, 2.0, 0.05"},
+        "set_amount_to_darken_non_bold_colors", "get_amount_to_darken_non_bold_colors");
+    godot::ClassDB::add_property("LinuxHost",
+        godot::PropertyInfo{godot::Variant::INT, "max_columns_per_line", godot::PROPERTY_HINT_RANGE, "100, 1000, 5"},
+        "set_max_columns_per_line", "get_max_columns_per_line");
 }
 
 void LinuxHost::_notification(int p_what) {
@@ -268,13 +283,28 @@ void LinuxHost::_notification(int p_what) {
 }
 
 void LinuxHost::startTerminal() {
-    if (running) return;
-    if (openpty(&master_fd, &slave_fd, nullptr, nullptr, nullptr) == -1) {godot::UtilityFunctions::printerr("Openpty Failed"); return;}
+    if (running || master_fd != -1) {
+        godot::UtilityFunctions::print("Terminal is already running");
+        return;
+    }
+
+    if (openpty(&master_fd, &slave_fd, nullptr, nullptr, nullptr) == -1) {
+        godot::UtilityFunctions::printerr("Openpty Failed");
+        return;
+    }
+
+    endTerminal();
+
     const int flags = fcntl(master_fd, F_GETFL, 0);
     fcntl(master_fd, F_SETFL, flags | O_NONBLOCK);
 
     child_pid = fork();
-    if (child_pid == -1) {godot::UtilityFunctions::printerr("Fork Failed"); return;}
+    if (child_pid == -1) {
+        godot::UtilityFunctions::printerr("Fork Failed");
+        close(slave_fd);
+        slave_fd = -1;
+        return;
+    }
 
     if (child_pid == 0){
         close(master_fd);
@@ -294,7 +324,8 @@ void LinuxHost::startTerminal() {
 
     godot::UtilityFunctions::print("PTY searched, PID: ", child_pid);
 
-    loadHistory(500, "bash");
+    validLinuxShells = readEtcShells();
+    loadHistory("bash");
 }
 
 void LinuxHost::endTerminal(){
@@ -307,7 +338,7 @@ void LinuxHost::endTerminal(){
 
         kill(child_pid, SIGKILL);
 
-        waitpid(child_pid, nullptr, WNOHANG);
+        waitpid(child_pid, nullptr, 0);
         child_pid = -1;
     }
 
@@ -348,7 +379,10 @@ godot::String LinuxHost::readFromTerminal() {
         const ssize_t n = read(master_fd, buffer, sizeof(buffer) - 1);
 
         if (n > 0) res = godot::String::utf8(buffer, static_cast<int>(n));
-        else if (n == 0 || (n < 0 && errno == EIO)) running = false;
+        else if (n == 0 || (n < 0 && errno == EIO)) {
+            endTerminal();
+            return "";
+        }
     }
     return res;
 }
@@ -391,16 +425,11 @@ void LinuxHost::_gui_input(const godot::Ref<godot::InputEvent> &event) {
     if (!key_event.is_valid() || !key_event->is_pressed()) return;
     if (!has_focus()) return;
     const int keycode = key_event->get_keycode();
-    if (key_event->is_ctrl_pressed() || key_event->is_alt_pressed()) {
-        clampCaret();
-        if (has_selection()) deselect();
-    }
-    if (keycode == godot::KEY_LEFT || keycode == godot::KEY_PAGEUP || keycode == godot::KEY_HOME) {
+    if (keycode == godot::KEY_PAGEUP || keycode == godot::KEY_HOME) {
         clampCaret();
         return;
     }
     if (keycode == godot::KEY_C && key_event->is_ctrl_pressed()) {
-        if (has_selection()) deselect();
         if (master_fd == -1) return;
         const pid_t fg_pgid = tcgetpgrp(master_fd);
         if (fg_pgid > 0) kill(-fg_pgid, SIGINT);
@@ -410,7 +439,6 @@ void LinuxHost::_gui_input(const godot::Ref<godot::InputEvent> &event) {
         return;
     }
     if (keycode == godot::KEY_ENTER) {
-        if (has_selection()) deselect();
         if (!input.strip_edges().is_empty()) {
             history.push_back(input);
             history_index = static_cast<int32_t>(history.size());
@@ -422,7 +450,6 @@ void LinuxHost::_gui_input(const godot::Ref<godot::InputEvent> &event) {
         return;
     }
     if (keycode == godot::KEY_UP) {
-        if (has_selection()) deselect();
         if (history.is_empty()) {accept_event(); return;}
         if (history_index == history.size()) history_temp = input;
         history_index = std::max(0, history_index - 1);
@@ -434,7 +461,6 @@ void LinuxHost::_gui_input(const godot::Ref<godot::InputEvent> &event) {
         return;
     }
     if (keycode == godot::KEY_DOWN) {
-        if (has_selection()) deselect();
         history_index = std::min(static_cast<int32_t>(history.size()) , history_index + 1);
         if (history_index == history.size()) input = history_temp;
         else if (history_index < history.size()) input = history[history_index];
@@ -448,10 +474,7 @@ void LinuxHost::_gui_input(const godot::Ref<godot::InputEvent> &event) {
         if (const int64_t rel = getRelativeCaretIndex(); rel > 0 && rel <= input.length()) {
             input = input.substr(0, rel - 1) + input.substr(rel);
         }
-        else {
-            clampCaret();
-            if (has_selection()) deselect();
-        }
+        else clampCaret();
     }
     if (!key_event->is_ctrl_pressed() && !key_event->is_alt_pressed()) {
         const char32_t unicode = key_event->get_unicode();
@@ -459,10 +482,7 @@ void LinuxHost::_gui_input(const godot::Ref<godot::InputEvent> &event) {
         if (const int64_t rel = getRelativeCaretIndex(); rel >= 0 && rel <= input.length()) {
             input = input.substr(0, rel) + godot::String::chr(unicode) + input.substr(rel);
         }
-        else {
-            clampCaret();
-            if (has_selection()) deselect();
-        }
+        else clampCaret();
     }
 }
 
