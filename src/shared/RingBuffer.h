@@ -20,20 +20,38 @@ public:
         else head_ = (head_ + 1) % capacity_;
     }
 
-    void resize(const size_t &new_capacity) {
-        /*
-         * In the ideal case this will not be used however, for changing history scrollback size I will need this
-         */
-        data.resize(new_capacity);
-        capacity_ = new_capacity;
-    }
-
     void push_back(T&& x) {
         const bool isFull = is_full();
         data[tail_] = std::move(x);
         tail_ = (tail_ + 1) % capacity_;
         if (!isFull) ++size_;
         else head_ = (head_ + 1) % capacity_;
+    }
+
+    void resize(const size_t &new_capacity) {
+        /*
+         * In the ideal case this will not be used however, for changing history scrollback size I will need this
+         */
+        std::vector<T> temp;
+        size_t items_to_keep = std::min(size_, new_capacity);
+
+        size_t start_logical_index = (size_ > new_capacity) ? (size_ - new_capacity) : 0;
+
+        temp.reserve(items_to_keep);
+        for (size_t i = start_logical_index; i < size_; ++i) {
+            temp.push_back(std::move((*this)[i]));
+        }
+
+        capacity_ = new_capacity;
+        data.resize(capacity_);
+
+        head_ = 0;
+        size_ = temp.size();
+        tail_ = (size_ == capacity_) ? 0 : size_;
+
+        for (size_t i = 0; i < size_; ++i) {
+            data[i] = std::move(temp[i]);
+        }
     }
 
     void pop_back() {

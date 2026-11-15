@@ -87,9 +87,20 @@ public:
     //getters and setters
     float_t get_amount_to_darken_non_bold_colors() const {return AMOUNT_TO_DARKEN_NON_BOLD_COLORS;}
     int32_t get_max_columns_per_line() const {return MAX_COLS_PER_LINE;}
+    int32_t get_max_history_size() const {return MAX_HISTORY_SIZE;}
+    int32_t get_max_terminal_scrollback_lines() const {return MAX_TERMINAL_SCROLLBACK_LINES;}
 
     void set_amount_to_darken_non_bold_colors(const float_t amount) {AMOUNT_TO_DARKEN_NON_BOLD_COLORS = amount;}
     void set_max_columns_per_line(const int32_t max_columns_per_line) {MAX_COLS_PER_LINE = max_columns_per_line;}
+    void set_max_history_size(const int32_t new_size) {
+        MAX_HISTORY_SIZE = new_size;
+        history.resize(static_cast<size_t>(MAX_HISTORY_SIZE));
+        loadHistory("bash");
+    }
+    void set_max_terminal_scrollback_lines(const int32_t new_size) {
+        MAX_TERMINAL_SCROLLBACK_LINES = new_size;
+        segments.resize(static_cast<size_t>(MAX_TERMINAL_SCROLLBACK_LINES));
+    }
 
     void _ready() override;
     void _exit_tree() override;

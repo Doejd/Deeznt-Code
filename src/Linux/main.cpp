@@ -258,9 +258,13 @@ void LinuxHost::_bind_methods(){
 
     godot::ClassDB::bind_method(godot::D_METHOD("get_amount_to_darken_non_bold_colors"), &LinuxHost::get_amount_to_darken_non_bold_colors);
     godot::ClassDB::bind_method(godot::D_METHOD("get_max_columns_per_line"), &LinuxHost::get_max_columns_per_line);
+    godot::ClassDB::bind_method(godot::D_METHOD("get_max_history_size"), &LinuxHost::get_max_history_size);
+    godot::ClassDB::bind_method(godot::D_METHOD("get_max_terminal_scrollback_lines"), &LinuxHost::get_max_terminal_scrollback_lines);
 
     godot::ClassDB::bind_method(godot::D_METHOD("set_amount_to_darken_non_bold_colors", "amount"), &LinuxHost::set_amount_to_darken_non_bold_colors);
     godot::ClassDB::bind_method(godot::D_METHOD("set_max_columns_per_line", "max_columns_per_line"), &LinuxHost::set_max_columns_per_line);
+    godot::ClassDB::bind_method(godot::D_METHOD("set_max_history_size", "new_size"), &LinuxHost::set_max_history_size);
+    godot::ClassDB::bind_method(godot::D_METHOD("set_max_terminal_scrollback_lines", "new_size"), &LinuxHost::set_max_terminal_scrollback_lines);
 
     godot::ClassDB::add_property("LinuxHost",
         godot::PropertyInfo{godot::Variant::FLOAT, "amount_to_darken_non_bold_colors", godot::PROPERTY_HINT_RANGE, "1.0, 2.0, 0.05"},
@@ -268,6 +272,12 @@ void LinuxHost::_bind_methods(){
     godot::ClassDB::add_property("LinuxHost",
         godot::PropertyInfo{godot::Variant::INT, "max_columns_per_line", godot::PROPERTY_HINT_RANGE, "100, 1000, 5"},
         "set_max_columns_per_line", "get_max_columns_per_line");
+    godot::ClassDB::add_property("LinuxHost",
+        godot::PropertyInfo{godot::Variant::INT, "max_history_size", godot::PROPERTY_HINT_RANGE, "100, 500, 5"},
+        "set_max_history_size", "get_max_history_size");
+    godot::ClassDB::add_property("LinuxHost",
+        godot::PropertyInfo{godot::Variant::INT, "max_scrollback_size", godot::PROPERTY_HINT_RANGE, "100, 35000, 100"},
+        "set_max_terminal_scrollback_lines", "get_max_terminal_scrollback_lines");
 }
 
 void LinuxHost::_notification(int p_what) {
