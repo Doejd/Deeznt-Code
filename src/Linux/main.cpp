@@ -9,7 +9,6 @@
 #include <godot_cpp/classes/input.hpp>
 #include <godot_cpp/classes/input_event.hpp>
 #include <godot_cpp/classes/input_event_action.hpp>
-#include <godot_cpp/classes/input_event_key.hpp>
 #include <godot_cpp/classes/file_access.hpp>
 #include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/popup_menu.hpp>
@@ -163,29 +162,56 @@ void LinuxHost::loadHistory(const std::string &shell_name) {
 }
 
 void LinuxHost::clampCaret() {
-    if (const int64_t rel = getRelativeCaretIndex(); rel <= 0) {
-        set_caret_line(input_start_line_col.x);
-        set_caret_column(input_start_line_col.y);
-        accept_event();
-    }
+    set_caret_line(input_start_line_col.x);
+    set_caret_column(input_start_line_col.y);
 }
 
-int64_t LinuxHost::getRelativeCaretIndex() const {
+bool LinuxHost::isAfterReadOnlyText() const {
+    const int input_start_line = input_start_line_col.x;
+    const int input_start_col = input_start_line_col.y;
+
+    const int caret_line = get_caret_line();
+    const int caret_column = get_caret_column();
+
+    return (caret_line == input_start_line && caret_column >= input_start_col) || caret_line > input_start_line;
+}
+
+int32_t LinuxHost::getRelativeCaretIndex() const {
     const int start_line = input_start_line_col.x;
     const int start_col = input_start_line_col.y;
 
     const int caret_line = get_caret_line();
     const int caret_column = get_caret_column();
-    if (caret_line < start_line || (caret_line == start_line && caret_column < start_col)) return -1;
+    if (!isAfterReadOnlyText()) return -1;
 
     if (caret_line == start_line) return caret_column - start_col;
 
-    int64_t idx = 0;
-    idx += get_line(start_line).length();
-    for (int i{start_line+1}; i < caret_line; i++) idx += get_line(i).length();
+    int32_t idx = 0;
+    for (int i{start_line}; i < caret_line; i++) idx += static_cast<int32_t>(get_line(i).length());
     idx += caret_column;
 
     return idx;
+}
+
+bool LinuxHost::isNavigationKey(const godot::Ref<godot::InputEventKey> &key_event) {
+    const godot::Key key = key_event->get_keycode();
+    if (key == godot::KEY_SHIFT || key == godot::KEY_CTRL ||
+        key == godot::KEY_ALT || key == godot::KEY_META ||
+        key == godot::KEY_CAPSLOCK) return true;
+
+    if (key_event->is_shift_pressed() ||
+        key_event->is_ctrl_pressed() ||
+        key_event->is_alt_pressed() ||
+        key_event->is_meta_pressed()) return true;
+
+    return key_event->is_action("ui_left") ||
+           key_event->is_action("ui_right") ||
+           key_event->is_action("ui_home") ||
+           key_event->is_action("ui_end") ||
+           key_event->is_action("ui_page_up") ||
+           key_event->is_action("ui_page_down") ||
+           key_event->is_action("ui_focus_next") ||
+           key_event->is_action("ui_focus_prev");
 }
 
 void LinuxHost::pushToSegments(godot::String &frame_text, godot::String &cur_text) {
@@ -278,6 +304,7 @@ void LinuxHost::_bind_methods(){
     godot::ClassDB::add_property("LinuxHost",
         godot::PropertyInfo{godot::Variant::INT, "max_scrollback_size", godot::PROPERTY_HINT_RANGE, "100, 35000, 100"},
         "set_max_terminal_scrollback_lines", "get_max_terminal_scrollback_lines");
+
 }
 
 void LinuxHost::_notification(int p_what) {
@@ -322,10 +349,9 @@ void LinuxHost::startTerminal() {
 
         login_tty(slave_fd);
 
-        execlp("bash", "bash", nullptr);
+        execl(selectedShell.utf8().get_data(), selectedShell.utf8().get_data(), nullptr);
 
-
-        perror("execlp");
+        perror("execl");
         _exit(1);
     }
 
@@ -335,7 +361,7 @@ void LinuxHost::startTerminal() {
     godot::UtilityFunctions::print("PTY searched, PID: ", child_pid);
 
     validLinuxShells = readEtcShells();
-    loadHistory("bash");
+    loadHistory(selectedShell.utf8().get_data());
 }
 
 void LinuxHost::endTerminal(){
@@ -384,6 +410,8 @@ godot::String LinuxHost::readFromTerminal() {
     pfd.events = POLLIN;
 
     if (const int ret = poll(&pfd, 1, 0); ret <= 0) return "";
+
+    char buffer[8192]; // 8KB buffer for read(), in order to not spike frame rate
 
     if (pfd.revents & (POLLIN | POLLHUP)) {
         const ssize_t n = read(master_fd, buffer, sizeof(buffer) - 1);
@@ -435,17 +463,21 @@ void LinuxHost::_gui_input(const godot::Ref<godot::InputEvent> &event) {
     if (!key_event.is_valid() || !key_event->is_pressed()) return;
     if (!has_focus()) return;
     const int keycode = key_event->get_keycode();
-    if (keycode == godot::KEY_PAGEUP || keycode == godot::KEY_HOME) {
-        clampCaret();
-        return;
-    }
+    if (keycode == godot::KEY_PAGEUP || keycode == godot::KEY_HOME) return;
     if (keycode == godot::KEY_C && key_event->is_ctrl_pressed()) {
         if (master_fd == -1) return;
         const pid_t fg_pgid = tcgetpgrp(master_fd);
         if (fg_pgid > 0) kill(-fg_pgid, SIGINT);
 
         input = "";
+        if (!isAfterReadOnlyText()) clampCaret();
+        accept_event();
+        return;
+    }
+    if (!isAfterReadOnlyText() && !isNavigationKey(key_event)) {
+        if (has_selection()) deselect();
         clampCaret();
+        accept_event();
         return;
     }
     if (keycode == godot::KEY_ENTER) {
@@ -456,7 +488,7 @@ void LinuxHost::_gui_input(const godot::Ref<godot::InputEvent> &event) {
         remove_text(input_start_line_col.x, input_start_line_col.y, get_line_count() - 1, static_cast<int32_t>(get_line(get_line_count() - 1).length()));
         writeToTerminal(input + "\n");
         input = "";
-        clampCaret();
+        accept_event();
         return;
     }
     if (keycode == godot::KEY_UP) {
@@ -466,7 +498,6 @@ void LinuxHost::_gui_input(const godot::Ref<godot::InputEvent> &event) {
         input = history[history_index];
         remove_text(input_start_line_col.x, input_start_line_col.y, get_line_count() - 1, static_cast<int32_t>(get_line(get_line_count() - 1).length()));
         insert_text(input,input_start_line_col.x, input_start_line_col.y);
-        clampCaret();
         accept_event();
         return;
     }
@@ -476,23 +507,32 @@ void LinuxHost::_gui_input(const godot::Ref<godot::InputEvent> &event) {
         else if (history_index < history.size()) input = history[history_index];
         remove_text(input_start_line_col.x, input_start_line_col.y, get_line_count() - 1, static_cast<int32_t>(get_line(get_line_count() - 1).length()));
         insert_text(input,input_start_line_col.x, input_start_line_col.y);
-        clampCaret();
         accept_event();
         return;
     }
     if (keycode == godot::KEY_BACKSPACE) {
-        if (const int64_t rel = getRelativeCaretIndex(); rel > 0 && rel <= input.length()) {
-            input = input.substr(0, rel - 1) + input.substr(rel);
+        const int32_t rel = getRelativeCaretIndex();
+        if (key_event->is_ctrl_pressed() || rel <= 0) {
+            accept_event();
+            return;
         }
-        else clampCaret();
+        if (has_selection()) deselect();
+        input = input.substr(0, rel - 1) + input.substr(rel);
+    }
+    if (keycode == godot::KEY_DELETE) {
+        const int32_t rel = getRelativeCaretIndex();
+        if (key_event->is_ctrl_pressed() || rel >= input.length()) {
+            accept_event();
+            return;
+        }
+        if (has_selection()) deselect();
+        input = input.substr(0, rel) + input.substr(rel + 1);
     }
     if (!key_event->is_ctrl_pressed() && !key_event->is_alt_pressed()) {
         const char32_t unicode = key_event->get_unicode();
         if (unicode == 0) return;
-        if (const int64_t rel = getRelativeCaretIndex(); rel >= 0 && rel <= input.length()) {
-            input = input.substr(0, rel) + godot::String::chr(unicode) + input.substr(rel);
-        }
-        else clampCaret();
+        const int64_t rel = getRelativeCaretIndex();
+        input = input.substr(0, rel) + godot::String::chr(unicode) + input.substr(rel);
     }
 }
 
@@ -551,18 +591,20 @@ void LinuxHost::_draw() {
     }
 }
 
+
+
 void LinuxHost::_paste(int caret_index) {
     const godot::String pastedText = godot::DisplayServer::get_singleton()->clipboard_get();
     if (pastedText.is_empty()) return;
-    if (const int64_t rel = getRelativeCaretIndex(); rel >= 0 && rel <= input.length()) {
-        input = input.substr(0, rel) + pastedText + input.substr(rel);
-        insert_text_at_caret(pastedText);
-    }
-    else {
+    if (has_selection()) deselect();
+    if (!isAfterReadOnlyText()) {
         clampCaret();
-        if (has_selection()) deselect();
+        accept_event();
     }
-    accept_event();
+
+    const int32_t rel = getRelativeCaretIndex();
+    input = input.substr(0, rel) + pastedText + input.substr(rel);
+    insert_text_at_caret(pastedText);
 }
 
 const LineRingBuffer& LinuxHost::getSegments() const {return segments;}

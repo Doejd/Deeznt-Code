@@ -10,6 +10,8 @@
 #include <bits/basic_string.h>
 #include <sys/types.h>
 
+#include "godot_cpp/classes/input_event_key.hpp"
+
 
 enum class ParseState {
     Normal,
@@ -30,7 +32,6 @@ class AnsiHighlighter : public godot::SyntaxHighlighter {
 class LinuxHost : public godot::TextEdit {
     GDCLASS(LinuxHost, godot::TextEdit);
 
-
     int master_fd{-1};
     int slave_fd{-1};
     pid_t child_pid{-1};
@@ -38,7 +39,7 @@ class LinuxHost : public godot::TextEdit {
 
     // The options for switching the shell that'll be exposed to the engine
     godot::PackedStringArray validLinuxShells;
-    godot::String selectedShell;
+    godot::String selectedShell{"/usr/bin/bash"};
 
     // The properties that will be exposed to the engine
     int32_t MAX_COLS_PER_LINE{120};
@@ -54,8 +55,6 @@ class LinuxHost : public godot::TextEdit {
     int32_t history_index{0};
     RingBuffer<godot::String> history{static_cast<size_t>(MAX_HISTORY_SIZE)};
 
-    char buffer[32768]; // 32KB read buffer(for read()), in order not to spike the frame rate
-
     godot::Ref<AnsiHighlighter> highlighter;
 
     Segment current;
@@ -68,7 +67,10 @@ class LinuxHost : public godot::TextEdit {
     void loadHistory(const std::string &shell_name);
 
     void clampCaret();
-    [[nodiscard]] int64_t getRelativeCaretIndex() const;
+    [[nodiscard]] int32_t getRelativeCaretIndex() const;
+    [[nodiscard]] bool isAfterReadOnlyText() const;
+
+    static bool isNavigationKey(const godot::Ref<godot::InputEventKey> &key_event);
 
     void pushToSegments(godot::String &frame_text, godot::String &cur_text);
     void getHighlighting(const godot::String &ansi_string, godot::String &frame_text);
@@ -95,7 +97,7 @@ public:
     void set_max_history_size(const int32_t new_size) {
         MAX_HISTORY_SIZE = new_size;
         history.resize(static_cast<size_t>(MAX_HISTORY_SIZE));
-        loadHistory("bash");
+        loadHistory(selectedShell.utf8().get_data());
     }
     void set_max_terminal_scrollback_lines(const int32_t new_size) {
         MAX_TERMINAL_SCROLLBACK_LINES = new_size;
