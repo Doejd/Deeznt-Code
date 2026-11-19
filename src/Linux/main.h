@@ -5,12 +5,12 @@
 #include "../shared/LineRingBuffer.h"
 #include <godot_cpp/classes/text_edit.hpp>
 #include <godot_cpp/classes/syntax_highlighter.hpp>
+#include <godot_cpp/classes/engine.hpp>
+#include <godot_cpp/classes/input_event_key.hpp>
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/classes/font.hpp>
 #include <bits/basic_string.h>
 #include <sys/types.h>
-
-#include "godot_cpp/classes/input_event_key.hpp"
 
 
 enum class ParseState {
@@ -37,15 +37,12 @@ class LinuxHost : public godot::TextEdit {
     pid_t child_pid{-1};
     bool running{false};
 
-    // The options for switching the shell that'll be exposed to the engine
-    godot::PackedStringArray validLinuxShells;
-    godot::String selectedShell{"/usr/bin/bash"};
-
     // The properties that will be exposed to the engine
     int32_t MAX_COLS_PER_LINE{120};
     int32_t MAX_HISTORY_SIZE{100};
     int32_t MAX_TERMINAL_SCROLLBACK_LINES{22560};
     float_t AMOUNT_TO_DARKEN_NON_BOLD_COLORS{1.15};
+    godot::String selectedShell{"/usr/bin/bash"};
 
     godot::String input;
     godot::Ref<godot::Font> font;
@@ -79,6 +76,7 @@ class LinuxHost : public godot::TextEdit {
 protected:
     static void _bind_methods();
     void _notification(int p_what);
+    void _validate_property(godot::PropertyInfo &p_property) const;
 
 public:
     void startTerminal();
@@ -92,14 +90,26 @@ public:
     int32_t get_max_history_size() const {return MAX_HISTORY_SIZE;}
     int32_t get_max_terminal_scrollback_lines() const {return MAX_TERMINAL_SCROLLBACK_LINES;}
 
-    void set_amount_to_darken_non_bold_colors(const float_t amount) {AMOUNT_TO_DARKEN_NON_BOLD_COLORS = amount;}
-    void set_max_columns_per_line(const int32_t max_columns_per_line) {MAX_COLS_PER_LINE = max_columns_per_line;}
+    void set_amount_to_darken_non_bold_colors(const float_t amount) {
+        if (running) return;
+
+        AMOUNT_TO_DARKEN_NON_BOLD_COLORS = amount;
+    }
+    void set_max_columns_per_line(const int32_t max_columns_per_line) {
+        if (running) return;
+
+        MAX_COLS_PER_LINE = max_columns_per_line;
+    }
     void set_max_history_size(const int32_t new_size) {
+        if (running) return;
+
         MAX_HISTORY_SIZE = new_size;
         history.resize(static_cast<size_t>(MAX_HISTORY_SIZE));
         loadHistory(selectedShell.utf8().get_data());
     }
     void set_max_terminal_scrollback_lines(const int32_t new_size) {
+        if (running) return;
+
         MAX_TERMINAL_SCROLLBACK_LINES = new_size;
         segments.resize(static_cast<size_t>(MAX_TERMINAL_SCROLLBACK_LINES));
     }

@@ -19,6 +19,7 @@
 #include <sys/wait.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <filesystem>
 #include <poll.h>
 #include <string>
 
@@ -53,11 +54,11 @@ godot::PackedStringArray LinuxHost::readEtcShells() {
 
     if (etcShells.is_null()) {
         godot::UtilityFunctions::printerr("Could not find /etc/shells file");
-        return {"/usr/bin/bash"};
+        return {};
     }
 
     const godot::String trustedShells = etcShells->get_as_text();
-    godot::PackedStringArray validShells;
+    godot::PackedStringArray validShells{};
 
     while (!etcShells->eof_reached()) {
         const godot::String line = etcShells->get_line().strip_edges();
@@ -88,7 +89,7 @@ godot::String LinuxHost::loadHistoryPath(const std::string &shell_name) {
         }
         if (homePath != nullptr) {
             const auto historyPath = godot::String(homePath) + godot::String("/.bash_history");
-            godot::UtilityFunctions::print("Backup path for bash shell: ", historyPath);
+            godot::UtilityFunctions::print("Trying backup path for bash shell history file: ", historyPath);
             resultPath = historyPath;
         }
         else godot::UtilityFunctions::printerr("Could not find bash history file");
@@ -101,7 +102,7 @@ godot::String LinuxHost::loadHistoryPath(const std::string &shell_name) {
         }
         if (homePath != nullptr) {
             const auto historyPath = godot::String(homePath) + godot::String("/.zsh_history");
-            godot::UtilityFunctions::print("Backup path for zsh shell: ", historyPath);
+            godot::UtilityFunctions::print("Trying backup path for zsh shell history file: ", historyPath);
             resultPath = historyPath;
         }
         else godot::UtilityFunctions::printerr("Could not find zsh history file");
@@ -280,7 +281,7 @@ void LinuxHost::getHighlighting(const godot::String &ansi_string, godot::String 
 void LinuxHost::_bind_methods(){
     godot::ClassDB::bind_method(godot::D_METHOD("endTerminal"), &LinuxHost::endTerminal);
     godot::ClassDB::bind_method(godot::D_METHOD("startTerminal"), &LinuxHost::startTerminal);
-    godot::ClassDB::bind_method(godot::D_METHOD("writeToTerminal"), &LinuxHost::writeToTerminal);
+    godot::ClassDB::bind_method(godot::D_METHOD("writeToTerminal", "text"), &LinuxHost::writeToTerminal);
 
     godot::ClassDB::bind_method(godot::D_METHOD("get_amount_to_darken_non_bold_colors"), &LinuxHost::get_amount_to_darken_non_bold_colors);
     godot::ClassDB::bind_method(godot::D_METHOD("get_max_columns_per_line"), &LinuxHost::get_max_columns_per_line);
@@ -307,6 +308,15 @@ void LinuxHost::_bind_methods(){
 
 }
 
+void LinuxHost::_validate_property(godot::PropertyInfo &p_property) const {
+    if (p_property.name == godot::StringName("amount_to_darken_non_bold_colors") || p_property.name == godot::StringName("max_columns_per_line") ||
+        p_property.name == godot::StringName("max_history_size") || p_property.name == godot::StringName("max_scrollback_size")) {
+
+        if (running) p_property.usage |= godot::PROPERTY_USAGE_READ_ONLY;
+        else p_property.usage &= ~godot::PROPERTY_USAGE_READ_ONLY;
+    }
+}
+
 void LinuxHost::_notification(int p_what) {
     switch (p_what) {
         case NOTIFICATION_WM_CLOSE_REQUEST:
@@ -325,12 +335,12 @@ void LinuxHost::startTerminal() {
         return;
     }
 
+    endTerminal();
+
     if (openpty(&master_fd, &slave_fd, nullptr, nullptr, nullptr) == -1) {
         godot::UtilityFunctions::printerr("Openpty Failed");
         return;
     }
-
-    endTerminal();
 
     const int flags = fcntl(master_fd, F_GETFL, 0);
     fcntl(master_fd, F_SETFL, flags | O_NONBLOCK);
@@ -357,10 +367,10 @@ void LinuxHost::startTerminal() {
 
     close(slave_fd);
     running = true;
+    notify_property_list_changed(); // Tell the engine that properties cannot be modified
 
     godot::UtilityFunctions::print("PTY searched, PID: ", child_pid);
 
-    validLinuxShells = readEtcShells();
     loadHistory(selectedShell.utf8().get_data());
 }
 
@@ -368,13 +378,16 @@ void LinuxHost::endTerminal(){
     if (!running) return;
 
     running = false;
+    notify_property_list_changed(); // Tell the engine that properties can be modified now
 
     if (child_pid > 0){
         kill(child_pid, SIGHUP);
 
-        kill(child_pid, SIGKILL);
+        if (const pid_t res = waitpid(child_pid, nullptr, WNOHANG); res == 0) {
+            kill(child_pid, SIGKILL);
+            waitpid(child_pid, nullptr, 0);
+        }
 
-        waitpid(child_pid, nullptr, 0);
         child_pid = -1;
     }
 
@@ -466,11 +479,14 @@ void LinuxHost::_gui_input(const godot::Ref<godot::InputEvent> &event) {
     if (keycode == godot::KEY_PAGEUP || keycode == godot::KEY_HOME) return;
     if (keycode == godot::KEY_C && key_event->is_ctrl_pressed()) {
         if (master_fd == -1) return;
+        if (!isAfterReadOnlyText()) {
+            if (has_selection()) deselect();
+            clampCaret();
+        }
         const pid_t fg_pgid = tcgetpgrp(master_fd);
         if (fg_pgid > 0) kill(-fg_pgid, SIGINT);
 
         input = "";
-        if (!isAfterReadOnlyText()) clampCaret();
         accept_event();
         return;
     }

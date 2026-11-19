@@ -27,28 +27,12 @@ public:
     void resize(const size_t &new_capacity) {
         /*
          * In the ideal scenario this method will not be used, but since I plan on adding that as customization options, I might need it
+         * This function will only be called when the terminal is not running, therefore the container will be empty and it wouldn't matter
          */
         if (new_capacity == capacity_) return;
 
-        std::vector<godot::Vector<Segment>> temp;
-        size_t items_to_keep = std::min(size_, new_capacity);
-
-        size_t start_logical_index = (size_ > new_capacity) ? (size_ - new_capacity) : 0;
-
-        temp.reserve(items_to_keep);
-        for (size_t i = start_logical_index; i < size_; ++i) {
-            temp.push_back(std::move(data[GetPhysicalIndex(i)]));
-        }
-
         capacity_ = new_capacity;
         data.resize(capacity_);
-
-        head = 0;
-        size_ = temp.size();
-
-        for (size_t i = 0; i < size_; ++i) {
-            data[i] = std::move(temp[i]);
-        }
     }
 
     godot::Vector<Segment>& operator[](size_t index) {return data[GetPhysicalIndex(index)];}

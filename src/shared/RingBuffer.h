@@ -31,27 +31,11 @@ public:
     void resize(const size_t &new_capacity) {
         /*
          * In the ideal case this will not be used however, for changing history scrollback size I will need this
+         * This function will only be called when the terminal is not running, therefore the container will be empty and it wouldn't matter
          */
-        std::vector<T> temp;
-        size_t items_to_keep = std::min(size_, new_capacity);
-
-        size_t start_logical_index = (size_ > new_capacity) ? (size_ - new_capacity) : 0;
-
-        temp.reserve(items_to_keep);
-        for (size_t i = start_logical_index; i < size_; ++i) {
-            temp.push_back(std::move((*this)[i]));
-        }
 
         capacity_ = new_capacity;
         data.resize(capacity_);
-
-        head_ = 0;
-        size_ = temp.size();
-        tail_ = (size_ == capacity_) ? 0 : size_;
-
-        for (size_t i = 0; i < size_; ++i) {
-            data[i] = std::move(temp[i]);
-        }
     }
 
     void pop_back() {
