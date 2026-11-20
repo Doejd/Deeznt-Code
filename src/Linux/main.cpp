@@ -49,6 +49,10 @@ bool LinuxHost::fileExists(const char *path) {
     return path && stat(path, &st) == 0 && S_ISREG(st.st_mode);
 }
 
+bool LinuxHost::isValidExecutablePath(const char *path) {
+    return fileExists(path) && access(path, X_OK) == 0;
+}
+
 godot::PackedStringArray LinuxHost::readEtcShells() {
     const godot::Ref<godot::FileAccess> etcShells = godot::FileAccess::open("/etc/shells", godot::FileAccess::READ);
 
@@ -287,11 +291,13 @@ void LinuxHost::_bind_methods(){
     godot::ClassDB::bind_method(godot::D_METHOD("get_max_columns_per_line"), &LinuxHost::get_max_columns_per_line);
     godot::ClassDB::bind_method(godot::D_METHOD("get_max_history_size"), &LinuxHost::get_max_history_size);
     godot::ClassDB::bind_method(godot::D_METHOD("get_max_terminal_scrollback_lines"), &LinuxHost::get_max_terminal_scrollback_lines);
+    godot::ClassDB::bind_method(godot::D_METHOD("get_currently_selected_shell"), &LinuxHost::get_selected_shell);
 
     godot::ClassDB::bind_method(godot::D_METHOD("set_amount_to_darken_non_bold_colors", "amount"), &LinuxHost::set_amount_to_darken_non_bold_colors);
     godot::ClassDB::bind_method(godot::D_METHOD("set_max_columns_per_line", "max_columns_per_line"), &LinuxHost::set_max_columns_per_line);
     godot::ClassDB::bind_method(godot::D_METHOD("set_max_history_size", "new_size"), &LinuxHost::set_max_history_size);
     godot::ClassDB::bind_method(godot::D_METHOD("set_max_terminal_scrollback_lines", "new_size"), &LinuxHost::set_max_terminal_scrollback_lines);
+    godot::ClassDB::bind_method(godot::D_METHOD("set_currently_selected_shell", "new_shell_name"), &LinuxHost::set_selected_shell);
 
     godot::ClassDB::add_property("LinuxHost",
         godot::PropertyInfo{godot::Variant::FLOAT, "amount_to_darken_non_bold_colors", godot::PROPERTY_HINT_RANGE, "1.0, 2.0, 0.05"},
@@ -305,12 +311,16 @@ void LinuxHost::_bind_methods(){
     godot::ClassDB::add_property("LinuxHost",
         godot::PropertyInfo{godot::Variant::INT, "max_scrollback_size", godot::PROPERTY_HINT_RANGE, "100, 35000, 100"},
         "set_max_terminal_scrollback_lines", "get_max_terminal_scrollback_lines");
+    godot::ClassDB::add_property("LinuxHost",
+        godot::PropertyInfo{godot::Variant::STRING, "currently_selected_shell", godot::PROPERTY_HINT_NONE, ""},
+        "set_currently_selected_shell", "get_currently_selected_shell");
 
 }
 
 void LinuxHost::_validate_property(godot::PropertyInfo &p_property) const {
     if (p_property.name == godot::StringName("amount_to_darken_non_bold_colors") || p_property.name == godot::StringName("max_columns_per_line") ||
-        p_property.name == godot::StringName("max_history_size") || p_property.name == godot::StringName("max_scrollback_size")) {
+        p_property.name == godot::StringName("max_history_size") || p_property.name == godot::StringName("max_scrollback_size") ||
+        p_property.name == godot::StringName("currently_selected_shell")) {
 
         if (running) p_property.usage |= godot::PROPERTY_USAGE_READ_ONLY;
         else p_property.usage &= ~godot::PROPERTY_USAGE_READ_ONLY;
@@ -336,6 +346,28 @@ void LinuxHost::startTerminal() {
     }
 
     endTerminal();
+
+    if (readEtcShells().find(selectedShell) == -1) {
+        godot::UtilityFunctions::printerr("The shell that has been requested is not in /etc/shells or is not a valid executable");
+        if (isValidExecutablePath("/usr/bin/bash")) {
+            selectedShell = "/usr/bin/bash";
+            godot::UtilityFunctions::print("Reverting to /usr/bin/bash");
+        }
+        else if (isValidExecutablePath("/bin/bash")) {
+            selectedShell = "/bin/bash";
+            godot::UtilityFunctions::print("Reverting to /bin/bash");
+        }
+        else if (isValidExecutablePath("/bin/sh")) {
+            selectedShell = "/bin/sh";
+            godot::UtilityFunctions::print("Reverting to /bin/sh");
+        }
+        else {
+            godot::UtilityFunctions::printerr("Could not find any backup shell to run, please install one or select a valid shell");
+            return;
+        }
+        notify_property_list_changed();
+    }
+
 
     if (openpty(&master_fd, &slave_fd, nullptr, nullptr, nullptr) == -1) {
         godot::UtilityFunctions::printerr("Openpty Failed");

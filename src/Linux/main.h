@@ -58,6 +58,7 @@ class LinuxHost : public godot::TextEdit {
     LineRingBuffer segments{static_cast<size_t>(MAX_TERMINAL_SCROLLBACK_LINES)};
 
     static bool fileExists(const char *path);
+    static bool isValidExecutablePath(const char *path);
 
     static godot::PackedStringArray readEtcShells();
     static godot::String loadHistoryPath(const std::string &shell_name);
@@ -89,6 +90,7 @@ public:
     int32_t get_max_columns_per_line() const {return MAX_COLS_PER_LINE;}
     int32_t get_max_history_size() const {return MAX_HISTORY_SIZE;}
     int32_t get_max_terminal_scrollback_lines() const {return MAX_TERMINAL_SCROLLBACK_LINES;}
+    godot::String get_selected_shell() const {return selectedShell;}
 
     void set_amount_to_darken_non_bold_colors(const float_t amount) {
         if (running) return;
@@ -112,6 +114,11 @@ public:
 
         MAX_TERMINAL_SCROLLBACK_LINES = new_size;
         segments.resize(static_cast<size_t>(MAX_TERMINAL_SCROLLBACK_LINES));
+    }
+    void set_selected_shell(const godot::String &shell_name) {
+        if (running) return;
+
+        selectedShell = shell_name;
     }
 
     void _ready() override;
